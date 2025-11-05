@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import io.leavesfly.jimi.exception.AgentSpecException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import reactor.core.publisher.Mono;
 import org.springframework.stereotype.Service;
 import jakarta.annotation.PostConstruct;
@@ -28,14 +29,15 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 class AgentSpecLoader {
 
-    private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
 
     /**
-     * 默认Agent文件路径
+     * 默认 Agent 文件路径（相对于 agents 目录）
      */
-    private static final Path DEFAULT_AGENT_FILE = getAgentsDir()
-            .resolve("default")
-            .resolve("agent.yaml");
+    private static final Path DEFAULT_AGENT_RELATIVE_PATH =
+            Paths.get("defalut", "agent.yaml");
+
+    @Autowired
+    private ObjectMapper yamlObjectMapper;
 
 
     /**
@@ -63,9 +65,9 @@ class AgentSpecLoader {
         } catch (Exception e) {
             log.warn("无法从类路径加载agents目录，使用相对路径", e);
         }
+        String userHome = System.getProperty("user.home");
+        return Paths.get(userHome, ".jimi", "agents");
 
-        // 回退到相对路径
-        return Paths.get("src/main/resources/agents");
     }
 
     @PostConstruct
@@ -127,79 +129,25 @@ class AgentSpecLoader {
                 throw new AgentSpecException("工具列表不能为空");
             }
 
-            // 转换为ResolvedAgentSpec并缓存
-            AgentSpec resolved = AgentSpec.builder()
-                    .name(agentSpec.getName())
-                    .systemPromptPath(agentSpec.getSystemPromptPath())
-                    .systemPromptArgs(agentSpec.getSystemPromptArgs())
-                    .tools(agentSpec.getTools())
-                    .excludeTools(agentSpec.getExcludeTools() != null
-                            ? agentSpec.getExcludeTools()
-                            : new ArrayList<>())
-                    .subagents(agentSpec.getSubagents() != null
-                            ? agentSpec.getSubagents()
-                            : new HashMap<>())
-                    .build();
-            specCache.put(absolute, resolved);
+            specCache.put(absolute, agentSpec);
             log.debug("Agent spec cached: {}", absolute);
-            return resolved;
+            return agentSpec;
         });
     }
 
     /**
      * 内部加载方法，处理继承关系
      */
-    private static AgentSpec loadAgentSpecInternal(Path agentFile) {
+    private AgentSpec loadAgentSpecInternal(Path agentFile) {
         try {
             // 读取YAML文件
-            Map<String, Object> data = YAML_MAPPER.readValue(
+            Map<String, Object> data = yamlObjectMapper.readValue(
                     agentFile.toFile(),
                     Map.class
             );
 
-            // 检查版本
-            int version = (int) data.getOrDefault("version", 1);
-            if (version != 1) {
-                throw new AgentSpecException("不支持的Agent规范版本: " + version);
-            }
-
-            // 解析agent配置
-            Map<String, Object> agentData = (Map<String, Object>) data.get("agent");
-            if (agentData == null) {
-                throw new AgentSpecException("缺少'agent'配置节");
-            }
-
-            AgentSpec agentSpec = parseAgentSpec(agentData);
-
-            // 处理相对路径
-            if (agentSpec.getSystemPromptPath() != null) {
-                agentSpec.setSystemPromptPath(
-                        agentFile.getParent().resolve(agentSpec.getSystemPromptPath())
-                );
-            }
-
-            // 处理subagents路径
-            if (agentSpec.getSubagents() != null) {
-                for (SubagentSpec subagent : agentSpec.getSubagents().values()) {
-                    subagent.setPath(agentFile.getParent().resolve(subagent.getPath()));
-                }
-            }
-
-            // 处理继承
-            if (agentSpec.getExtend() != null) {
-                Path baseAgentFile;
-                if ("default".equals(agentSpec.getExtend())) {
-                    baseAgentFile = DEFAULT_AGENT_FILE;
-                } else {
-                    baseAgentFile = agentFile.getParent().resolve(agentSpec.getExtend());
-                }
-
-                log.debug("继承Agent配置: {}", baseAgentFile);
-                AgentSpec baseSpec = loadAgentSpecInternal(baseAgentFile);
-
-                // 合并配置
-                agentSpec = mergeAgentSpecs(baseSpec, agentSpec);
-            }
+            // 直接解析agent配置
+            AgentSpec agentSpec = parseAgentSpec(data, agentFile);
 
             return agentSpec;
 
@@ -211,34 +159,53 @@ class AgentSpecLoader {
     /**
      * 解析AgentSpec对象
      */
-    private static AgentSpec parseAgentSpec(Map<String, Object> data) {
+    private AgentSpec parseAgentSpec(Map<String, Object> data, Path agentFile) {
         AgentSpec.AgentSpecBuilder builder = AgentSpec.builder();
 
-        if (data.containsKey("extend")) {
-            builder.extend((String) data.get("extend"));
-        }
+
+        // 处理名称
         if (data.containsKey("name")) {
             builder.name((String) data.get("name"));
         }
-        if (data.containsKey("system_prompt_path")) {
-            builder.systemPromptPath(Paths.get((String) data.get("system_prompt_path")));
+
+        // 处理系统提示词路径（支持 system_prompt 和 system_prompt_path）
+        Path systemPromptPath = null;
+        if (data.containsKey("system_prompt")) {
+            systemPromptPath = agentFile.getParent().resolve((String) data.get("system_prompt"));
+        } else if (data.containsKey("system_prompt_path")) {
+            systemPromptPath = agentFile.getParent().resolve((String) data.get("system_prompt_path"));
         }
+        if (systemPromptPath != null) {
+            builder.systemPromptPath(systemPromptPath);
+        }
+
+        // 处理系统提示词参数
         if (data.containsKey("system_prompt_args")) {
             builder.systemPromptArgs((Map<String, String>) data.get("system_prompt_args"));
         }
+
+        // 处理工具列表
         if (data.containsKey("tools")) {
             builder.tools((List<String>) data.get("tools"));
         }
+
+        // 处理排除工具列表
         if (data.containsKey("exclude_tools")) {
             builder.excludeTools((List<String>) data.get("exclude_tools"));
         }
+
+        // 处理子Agent
         if (data.containsKey("subagents")) {
             Map<String, SubagentSpec> subagents = new HashMap<>();
             Map<String, Map<String, Object>> subagentsData =
                     (Map<String, Map<String, Object>>) data.get("subagents");
             for (Map.Entry<String, Map<String, Object>> entry : subagentsData.entrySet()) {
+                String subagentPath = (String) entry.getValue().get("path");
+                // 将相对路径转换为绝对路径
+                Path resolvedPath = agentsRootDir.resolve(subagentPath);
+
                 SubagentSpec subagent = SubagentSpec.builder()
-                        .path(Paths.get((String) entry.getValue().get("path")))
+                        .path(resolvedPath)
                         .description((String) entry.getValue().get("description"))
                         .build();
                 subagents.put(entry.getKey(), subagent);
@@ -249,52 +216,6 @@ class AgentSpecLoader {
         return builder.build();
     }
 
-    /**
-     * 合并两个AgentSpec（子类覆盖基类）
-     */
-    private static AgentSpec mergeAgentSpecs(AgentSpec base, AgentSpec override) {
-        AgentSpec.AgentSpecBuilder builder = AgentSpec.builder();
-
-        // name: 优先使用override
-        builder.name(override.getName() != null ? override.getName() : base.getName());
-
-        // system_prompt_path: 优先使用override
-        builder.systemPromptPath(override.getSystemPromptPath() != null
-                ? override.getSystemPromptPath()
-                : base.getSystemPromptPath());
-
-        // system_prompt_args: 合并（override覆盖base）
-        Map<String, String> mergedArgs = new HashMap<>(base.getSystemPromptArgs());
-        if (override.getSystemPromptArgs() != null) {
-            mergedArgs.putAll(override.getSystemPromptArgs());
-        }
-        builder.systemPromptArgs(mergedArgs);
-
-        // tools: 优先使用override
-        builder.tools(override.getTools() != null ? override.getTools() : base.getTools());
-
-        // exclude_tools: 优先使用override
-        builder.excludeTools(override.getExcludeTools() != null
-                ? override.getExcludeTools()
-                : base.getExcludeTools());
-
-        // subagents: 优先使用override
-        builder.subagents(override.getSubagents() != null
-                ? override.getSubagents()
-                : base.getSubagents());
-
-        // extend应该被清空（已经展开）
-        builder.extend(null);
-
-        return builder.build();
-    }
-
-
-    /**
-     * 默认 Agent 文件路径（相对于 agents 目录）
-     */
-    private static final Path DEFAULT_AGENT_RELATIVE_PATH =
-            Paths.get("default", "agent.yaml");
 
     /**
      * 获取默认 Agent 配置文件路径
@@ -305,9 +226,7 @@ class AgentSpecLoader {
     public Path getDefaultAgentPath() {
         // 尝试多个可能的位置
         List<Path> candidates = List.of(
-                agentsRootDir.resolve(DEFAULT_AGENT_RELATIVE_PATH),
-                Paths.get("src/main/resources/agents/default/agent.yaml"),
-                Paths.get("agents/default/agent.yaml")
+                agentsRootDir.resolve(DEFAULT_AGENT_RELATIVE_PATH)
         );
 
         for (Path candidate : candidates) {

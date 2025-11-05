@@ -67,7 +67,6 @@ public class AgentRegistry {
             // 规范化路径
             Path absolutePath = agentFile != null ? agentFile.toAbsolutePath().normalize() : specLoader.getDefaultAgentPath();
 
-
             // 加载 Agent 规范
             return loadAgentSpec(absolutePath).flatMap(spec -> {
                 log.info("加载Agent: {} (from {})", spec.getName(), absolutePath);

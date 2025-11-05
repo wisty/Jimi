@@ -17,55 +17,45 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 public class LLMProviderConfig {
-    
+
     /**
      * 提供商类型
      */
     @JsonProperty("type")
     private ProviderType type;
-    
+
     /**
      * API 基础 URL
      */
     @JsonProperty("base_url")
     private String baseUrl;
-    
+
     /**
      * API 密钥
      */
     @JsonProperty("api_key")
     private String apiKey;
-    
+
     /**
      * 自定义请求头
      */
     @JsonProperty("custom_headers")
     @Builder.Default
     private Map<String, String> customHeaders = new HashMap<>();
-    
+
     /**
      * 提供商类型枚举
      */
     public enum ProviderType {
-        @JsonProperty("kimi")
-        KIMI,
-        
-        @JsonProperty("deepseek")
-        DEEPSEEK,
-        
-        @JsonProperty("qwen")
-        QWEN,
-        
-        @JsonProperty("ollama")
-        OLLAMA,
-        
-        @JsonProperty("openai")
-        OPENAI,
-        
-        @JsonProperty("openai_legacy")
-        OPENAI_LEGACY,
-        
-        @JsonProperty("_chaos")
-        CHAOS
+        @JsonProperty("kimi") KIMI,
+
+        @JsonProperty("deepseek") DEEPSEEK,
+
+        @JsonProperty("qwen") QWEN,
+
+        @JsonProperty("ollama") OLLAMA,
+
+        @JsonProperty("openai") OPENAI
+
     }
 }

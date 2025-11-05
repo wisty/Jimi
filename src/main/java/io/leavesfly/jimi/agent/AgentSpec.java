@@ -20,14 +20,7 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AgentSpec {
-    
-    /**
-     * 继承的基础Agent文件路径
-     * 可以是"default"或相对路径
-     */
-    @JsonProperty("extend")
-    private String extend;
-    
+
     /**
      * Agent名称
      */
