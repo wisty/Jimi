@@ -121,13 +121,6 @@ public class ToolRegistry {
     /**
      * 生成工具的 JSON Schema 定义列表
      * 用于传递给 LLM
-     */
-    public List<JsonNode> getToolSchemas() {
-        return getToolSchemas(null);
-    }
-
-    /**
-     * 生成工具的 JSON Schema 定义列表（带过滤）
      *
      * @param includeTools 要包含的工具名称列表（null表示全部）
      */
