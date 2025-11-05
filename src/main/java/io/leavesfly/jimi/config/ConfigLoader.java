@@ -110,7 +110,6 @@ public class ConfigLoader {
                         .models(new HashMap<>())
                         .providers(new HashMap<>())
                         .loopControl(LoopControlConfig.builder().build())
-                        .services(ServicesConfig.builder().build())
                         .build();
     }
     
