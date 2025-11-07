@@ -1,6 +1,7 @@
 package io.leavesfly.jimi.tool.task;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.leavesfly.jimi.agent.AgentRegistry;
 import io.leavesfly.jimi.agent.AgentSpec;
@@ -110,18 +111,21 @@ public class Task extends AbstractTool<Task.Params> implements WireAware {
          * 任务描述
          */
         @JsonProperty("description")
+        @JsonPropertyDescription("任务的简短描述，用于说明该子任务的目的")
         private String description;
 
         /**
          * 子 Agent 名称
          */
         @JsonProperty("subagent_name")
+        @JsonPropertyDescription("要使用的子 Agent 名称，必须是工具描述中列出的可用子代理之一")
         private String subagentName;
 
         /**
          * 任务提示词（需要包含完整的背景信息）
          */
         @JsonProperty("prompt")
+        @JsonPropertyDescription("发送给子 Agent 的完整任务提示词，必须包含足够的上下文信息以便子 Agent 能够独立完成任务")
         private String prompt;
     }
 

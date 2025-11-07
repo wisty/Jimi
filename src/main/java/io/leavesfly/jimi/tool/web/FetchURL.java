@@ -1,5 +1,6 @@
 package io.leavesfly.jimi.tool.web;
 
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import io.leavesfly.jimi.tool.AbstractTool;
 import io.leavesfly.jimi.tool.ToolResult;
 import lombok.AllArgsConstructor;
@@ -34,6 +35,7 @@ public class FetchURL extends AbstractTool<FetchURL.Params> {
         /**
          * 要抓取的 URL
          */
+        @JsonPropertyDescription("要获取内容的网页 URL，必须是完整的 HTTP 或 HTTPS 地址")
         private String url;
     }
     

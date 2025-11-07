@@ -1,5 +1,6 @@
 package io.leavesfly.jimi.tool.file;
 
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import io.leavesfly.jimi.soul.runtime.BuiltinSystemPromptArgs;
 import io.leavesfly.jimi.tool.AbstractTool;
 import io.leavesfly.jimi.tool.ToolResult;
@@ -51,41 +52,48 @@ public class Grep extends AbstractTool<Grep.Params> {
         /**
          * 正则表达式模式
          */
+        @JsonPropertyDescription("用于搜索的正则表达式模式（支持 Java 正则语法）")
         private String pattern;
         
         /**
          * 搜索路径（文件或目录）
          */
+        @JsonPropertyDescription("要搜索的文件或目录路径。可以是相对路径或绝对路径。默认为 '.' （当前目录）")
         @Builder.Default
         private String path = ".";
         
         /**
          * Glob 模式过滤文件
          */
+        @JsonPropertyDescription("用于过滤文件名的 Glob 模式（例如：*.java）。默认为 null（不过滤）")
         @Builder.Default
         private String glob = null;
         
         /**
          * 输出模式：content, files_with_matches, count_matches
          */
+        @JsonPropertyDescription("输出模式：'content'（显示匹配的行）、'files_with_matches'（显示包含匹配的文件）、'count_matches'（显示每个文件的匹配数）。默认为 'files_with_matches'")
         @Builder.Default
         private String outputMode = "files_with_matches";
         
         /**
          * 显示行号（仅 content 模式）
          */
+        @JsonPropertyDescription("在 content 模式下是否显示行号。默认为 false")
         @Builder.Default
         private boolean lineNumber = false;
         
         /**
          * 忽略大小写
          */
+        @JsonPropertyDescription("是否在匹配时忽略大小写。默认为 false")
         @Builder.Default
         private boolean ignoreCase = false;
         
         /**
          * 限制输出行数
          */
+        @JsonPropertyDescription("限制输出的最大行数。默认为 null（不限制）")
         @Builder.Default
         private Integer headLimit = null;
     }

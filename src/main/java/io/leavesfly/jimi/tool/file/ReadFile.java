@@ -1,5 +1,6 @@
 package io.leavesfly.jimi.tool.file;
 
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import io.leavesfly.jimi.soul.runtime.BuiltinSystemPromptArgs;
 import io.leavesfly.jimi.tool.AbstractTool;
 import io.leavesfly.jimi.tool.ToolResult;
@@ -211,17 +212,20 @@ public class ReadFile extends AbstractTool<ReadFile.Params> {
         /**
          * 文件的绝对路径
          */
+        @JsonPropertyDescription("要读取的文件绝对路径，必须是完整路径（例如：/home/user/file.txt）")
         private String path;
         
         /**
          * 起始行号（从1开始）
          */
+        @JsonPropertyDescription("开始读取的行号，从 1 开始计数。默认为 1（文件开头）")
         @Builder.Default
         private int lineOffset = 1;
         
         /**
          * 读取行数
          */
+        @JsonPropertyDescription("从起始行开始读取的行数。默认为 " + MAX_LINES + " 行")
         @Builder.Default
         private int nLines = MAX_LINES;
     }

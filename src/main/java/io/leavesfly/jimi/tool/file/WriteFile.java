@@ -1,5 +1,6 @@
 package io.leavesfly.jimi.tool.file;
 
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import io.leavesfly.jimi.soul.approval.Approval;
 import io.leavesfly.jimi.soul.runtime.BuiltinSystemPromptArgs;
 import io.leavesfly.jimi.tool.AbstractTool;
@@ -46,16 +47,19 @@ public class WriteFile extends AbstractTool<WriteFile.Params> {
         /**
          * 文件绝对路径
          */
+        @JsonPropertyDescription("文件的绝对路径，必须是完整路径（例如：/home/user/file.txt）")
         private String path;
         
         /**
          * 要写入的内容
          */
+        @JsonPropertyDescription("需要写入文件的文本内容")
         private String content;
         
         /**
          * 写入模式：overwrite（覆盖）或 append（追加）
          */
+        @JsonPropertyDescription("写入模式：overwrite（覆盖原有内容）或 append（追加到文件末尾）。默认为 overwrite")
         @Builder.Default
         private String mode = "overwrite";
     }

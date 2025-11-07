@@ -1,5 +1,6 @@
 package io.leavesfly.jimi.tool.web;
 
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.leavesfly.jimi.tool.AbstractTool;
@@ -41,17 +42,20 @@ public class WebSearch extends AbstractTool<WebSearch.Params> {
         /**
          * 搜索查询文本
          */
+        @JsonPropertyDescription("要搜索的关键词或短语")
         private String query;
         
         /**
          * 返回结果数量（1-20）
          */
+        @JsonPropertyDescription("返回的搜索结果数量，取值范围 1-20。默认为 5")
         @Builder.Default
         private int limit = 5;
         
         /**
          * 是否包含网页内容（会消耗大量 Token）
          */
+        @JsonPropertyDescription("是否爬取并包含网页的完整内容。注意：开启后会显著增加 Token 消耗。默认为 false")
         @Builder.Default
         private boolean includeContent = false;
     }

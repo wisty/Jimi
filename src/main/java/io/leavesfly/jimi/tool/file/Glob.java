@@ -1,5 +1,6 @@
 package io.leavesfly.jimi.tool.file;
 
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import io.leavesfly.jimi.soul.runtime.BuiltinSystemPromptArgs;
 import io.leavesfly.jimi.tool.AbstractTool;
 import io.leavesfly.jimi.tool.ToolResult;
@@ -46,17 +47,20 @@ public class Glob extends AbstractTool<Glob.Params> {
         /**
          * Glob 模式
          */
+        @JsonPropertyDescription("Glob 模式字符串（例如：*.java, **/*.txt）。注意：不允许以 ** 开头")
         private String pattern;
         
         /**
          * 搜索目录的绝对路径（默认为工作目录）
          */
+        @JsonPropertyDescription("要搜索的目录绝对路径。如果不提供，则使用当前工作目录")
         @Builder.Default
         private String directory = null;
         
         /**
          * 是否包含目录
          */
+        @JsonPropertyDescription("是否在搜索结果中包含目录。true 表示包含目录和文件，false 表示只包含文件。默认为 true")
         @Builder.Default
         private boolean includeDirs = true;
     }

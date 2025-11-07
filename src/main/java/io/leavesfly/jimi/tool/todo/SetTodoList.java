@@ -1,5 +1,6 @@
 package io.leavesfly.jimi.tool.todo;
 
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import io.leavesfly.jimi.tool.AbstractTool;
 import io.leavesfly.jimi.tool.ToolResult;
 import io.leavesfly.jimi.tool.ToolResultBuilder;
@@ -38,11 +39,13 @@ public class SetTodoList extends AbstractTool<SetTodoList.Params> {
         /**
          * 待办事项标题
          */
+        @JsonPropertyDescription("待办事项的标题或名称")
         private String title;
         
         /**
          * 待办事项状态：Pending, In Progress, Done
          */
+        @JsonPropertyDescription("待办事项的状态，可选值：'Pending'（待办）、'In Progress'（进行中）、'Done'（已完成）")
         private String status;
     }
     
@@ -57,24 +60,28 @@ public class SetTodoList extends AbstractTool<SetTodoList.Params> {
         /**
          * 待办事项列表（基础列表）
          */
+        @JsonPropertyDescription("待办事项数组，每项包含 title 和 status 字段")
         @Builder.Default
         private List<Todo> todos = new ArrayList<>();
         
         /**
          * 对现有待办的状态更新（按标题匹配）
          */
+        @JsonPropertyDescription("需要更新状态的待办事项列表，根据 title 匹配并更新 status")
         @Builder.Default
         private List<Todo> updates = new ArrayList<>();
         
         /**
          * 需要新增的待办项（当标题不存在时添加）
          */
+        @JsonPropertyDescription("需要新增的待办事项列表，只当 title 不存在时才会添加")
         @Builder.Default
         private List<Todo> adds = new ArrayList<>();
         
         /**
          * 是否移除已完成（Done）的待办
          */
+        @JsonPropertyDescription("是否从列表中移除状态为 'Done' 的待办事项。默认为 false")
         @Builder.Default
         private boolean removeCompleted = false;
     }

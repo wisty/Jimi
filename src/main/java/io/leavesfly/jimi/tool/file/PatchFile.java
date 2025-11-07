@@ -1,6 +1,7 @@
 package io.leavesfly.jimi.tool.file;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.github.difflib.UnifiedDiffUtils;
 import com.github.difflib.patch.Patch;
 import com.github.difflib.patch.PatchFailedException;
@@ -95,12 +96,14 @@ public class PatchFile extends AbstractTool<PatchFile.Params> {
          * 文件的绝对路径
          */
         @JsonProperty("path")
+        @JsonPropertyDescription("要应用补丁的文件绝对路径，必须是完整路径（例如：/home/user/file.txt）")
         private String path;
         
         /**
          * unified diff 格式的补丁内容
          */
         @JsonProperty("diff")
+        @JsonPropertyDescription("unified diff 格式的补丁内容，与 'diff -u' 或 'git diff' 命令输出的格式相同")
         private String diff;
     }
     

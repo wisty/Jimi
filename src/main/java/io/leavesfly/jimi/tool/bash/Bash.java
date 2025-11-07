@@ -1,5 +1,6 @@
 package io.leavesfly.jimi.tool.bash;
 
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import io.leavesfly.jimi.soul.approval.Approval;
 import io.leavesfly.jimi.tool.AbstractTool;
 import io.leavesfly.jimi.tool.ToolResult;
@@ -46,11 +47,13 @@ public class Bash extends AbstractTool<Bash.Params> {
         /**
          * 要执行的 Bash 命令
          */
+        @JsonPropertyDescription("需要执行的 shell 命令字符串，支持所有 bash 语法")
         private String command;
         
         /**
          * 超时时间（秒）
          */
+        @JsonPropertyDescription("命令执行的超时时间（秒），取值范围 1-" + MAX_TIMEOUT + "。默认 60 秒")
         @Builder.Default
         private int timeout = 60;
     }

@@ -18,21 +18,24 @@ import io.leavesfly.jimi.tool.ToolResult;
 import io.leavesfly.jimi.wire.Wire;
 import io.leavesfly.jimi.wire.message.*;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Agent 执行器
- * 
+ * <p>
  * 职责：
  * - Agent 主循环调度
  * - LLM 交互处理
  * - 工具调用编排
  * - 步骤流程控制
- * 
+ * <p>
  * 设计原则：
  * - 单一职责：专注于执行流程
  * - 无状态：所有状态由 Context 管理
@@ -40,24 +43,24 @@ import java.util.List;
  */
 @Slf4j
 public class AgentExecutor {
-    
+
     private static final int RESERVED_TOKENS = 50_000;
     private static final int MAX_REPEATED_ERRORS = 3; // 最大重复错误次数
     private static final int MAX_THINKING_STEPS = 5; // 最大连续思考步数(无工具调用)
-    
+
     private final Agent agent;
     private final Runtime runtime;
     private final Context context;
     private final Wire wire;
     private final ToolRegistry toolRegistry;
     private final Compaction compaction;
-    
+
     // 用于跟踪连续的工具调用错误
     private final List<String> recentToolErrors = new ArrayList<>();
-    
+
     // 用于跟踪连续的无工具调用步数
     private int consecutiveNoToolCallSteps = 0;
-    
+
     public AgentExecutor(
             Agent agent,
             Runtime runtime,
@@ -73,10 +76,10 @@ public class AgentExecutor {
         this.toolRegistry = toolRegistry;
         this.compaction = compaction;
     }
-    
+
     /**
      * 执行 Agent 任务
-     * 
+     *
      * @param userInput 用户输入
      * @return 执行完成的 Mono
      */
@@ -90,14 +93,14 @@ public class AgentExecutor {
                     .doOnError(e -> log.error("Agent execution failed", e));
         });
     }
-    
+
     /**
      * Agent 主循环
      */
     private Mono<Void> agentLoop() {
         return Mono.defer(() -> agentLoopStep(1));
     }
-    
+
     /**
      * Agent 循环步骤
      */
@@ -107,10 +110,10 @@ public class AgentExecutor {
         if (stepNo > maxSteps) {
             return Mono.error(new MaxStepsReachedException(maxSteps));
         }
-        
+
         // 发送步骤开始消息
         wire.send(new StepBegin(stepNo));
-        
+
         return Mono.defer(() -> {
             // 检查上下文是否超限，触发压缩
             return checkAndCompactContext()
@@ -132,7 +135,7 @@ public class AgentExecutor {
                     });
         });
     }
-    
+
     /**
      * 检查并压缩上下文（如果需要）
      */
@@ -142,18 +145,18 @@ public class AgentExecutor {
             if (llm == null) {
                 return Mono.empty();
             }
-            
+
             int currentTokens = context.getTokenCount();
             int maxContextSize = llm.getMaxContextSize();
-            
+
             // 检查是否需要压缩（Token 数超过限制 - 预留Token）
             if (currentTokens > maxContextSize - RESERVED_TOKENS) {
                 log.info("Context size ({} tokens) approaching limit ({} tokens), triggering compaction",
                         currentTokens, maxContextSize);
-                
+
                 // 发送压缩开始事件
                 wire.send(new CompactionBegin());
-                
+
                 return compaction.compact(context.getHistory(), llm)
                         .flatMap(compactedMessages -> {
                             // 回退到检查点 0（保留系统提示词和初始检查点）
@@ -172,11 +175,11 @@ public class AgentExecutor {
                                     });
                         });
             }
-            
+
             return Mono.empty();
         });
     }
-    
+
     /**
      * 执行单步
      *
@@ -185,10 +188,10 @@ public class AgentExecutor {
     private Mono<Boolean> step() {
         return Mono.defer(() -> {
             LLM llm = runtime.getLlm();
-            
+
             // 生成工具 Schema
             List<Object> toolSchemas = new ArrayList<>(toolRegistry.getToolSchemas(agent.getTools()));
-            
+
             // 使用流式API调用 LLM
             return llm.getChatProvider()
                     .generateStream(
@@ -218,13 +221,13 @@ public class AgentExecutor {
                     .flatMap(acc -> {
                         // 构建完整的assistant消息
                         Message assistantMessage = buildMessageFromAccumulator(acc);
-                        
+
                         // 更新token计数
                         Mono<Void> updateTokens = Mono.empty();
                         if (acc.usage != null) {
                             updateTokens = context.updateTokenCount(acc.usage.getTotalTokens());
                         }
-                        
+
                         // 添加消息到上下文并处理
                         return updateTokens
                                 .then(context.appendMessage(assistantMessage))
@@ -232,10 +235,9 @@ public class AgentExecutor {
                     })
                     .onErrorResume(e -> {
                         // 增强的错误处理：记录详细的错误信息
-                        if (e instanceof org.springframework.web.reactive.function.client.WebClientResponseException) {
-                            org.springframework.web.reactive.function.client.WebClientResponseException webEx = 
-                                (org.springframework.web.reactive.function.client.WebClientResponseException) e;
-                            log.error("LLM API call failed: status={}, body={}", 
+                        if (e instanceof WebClientResponseException) {
+                            WebClientResponseException webEx = (WebClientResponseException) e;
+                            log.error("LLM API call failed: status={}, body={}",
                                     webEx.getStatusCode(), webEx.getResponseBodyAsString(), e);
                         } else {
                             log.error("LLM API call failed", e);
@@ -246,7 +248,7 @@ public class AgentExecutor {
                     });
         });
     }
-    
+
     /**
      * 流式累加器
      */
@@ -254,71 +256,160 @@ public class AgentExecutor {
         StringBuilder contentBuilder = new StringBuilder();
         List<ToolCall> toolCalls = new ArrayList<>();
         ChatCompletionResult.Usage usage;
-        
+
         // 用于临时存储正在构建的工具调用
         String currentToolCallId;
         String currentFunctionName;
         StringBuilder currentArguments = new StringBuilder();
     }
-    
+
     /**
      * 处理工具调用数据块
+     * <p>
+     * OpenAI流式API规范：
+     * - 第一个chunk包含 id 和 function.name
+     * - 后续chunk只包含 function.arguments 的增量（不包含id）
+     * - 新的工具调用开始时才会有新的id
      */
     private void handleToolCallChunk(StreamAccumulator acc, ChatCompletionChunk chunk) {
-        if (chunk.getToolCallId() != null) {
+
+        // 只有当chunk包含新的toolCallId时，才表示新工具调用的开始
+        if (chunk.getToolCallId() != null && !chunk.getToolCallId().isEmpty()) {
             // 新的工具调用开始
             if (acc.currentToolCallId != null) {
                 // 保存上一个工具调用
                 acc.toolCalls.add(buildToolCall(acc));
             }
+
+            // 初始化新的工具调用
             acc.currentToolCallId = chunk.getToolCallId();
-            // 注意：functionName可能为null,在后续的chunk中才出现
-            acc.currentFunctionName = chunk.getFunctionName();
+            acc.currentFunctionName = chunk.getFunctionName(); // 可能为null，在后续chunk中补充
             acc.currentArguments = new StringBuilder();
-        } else if (chunk.getFunctionName() != null && acc.currentToolCallId != null) {
-            // 更新当前工具调用的函数名(如果之前为null)
-            if (acc.currentFunctionName == null) {
+        }
+
+        // 更新当前工具调用的函数名（如果之前为null且当前chunk包含）
+        // 这处理函数名在后续chunk中才出现的情况
+        if (chunk.getFunctionName() != null && !chunk.getFunctionName().isEmpty()) {
+            if (acc.currentToolCallId != null && acc.currentFunctionName == null) {
                 acc.currentFunctionName = chunk.getFunctionName();
             }
         }
-        
-        // 累积参数
-        if (chunk.getArgumentsDelta() != null) {
-            acc.currentArguments.append(chunk.getArgumentsDelta());
+
+        // 累积参数增量（这是最常见的情况）
+        // 关键修复：即使没有toolCallId，只要有currentToolCallId就继续累积
+        if (chunk.getArgumentsDelta() != null && !chunk.getArgumentsDelta().isEmpty()) {
+            if (acc.currentToolCallId != null) {
+                acc.currentArguments.append(chunk.getArgumentsDelta());
+            } else {
+                // 这是一个异常情况：收到参数但没有工具调用上下文
+                log.error("收到孤立的argumentsDelta（没有对应的currentToolCallId）: '{}'",
+                        chunk.getArgumentsDelta().substring(0, Math.min(50, chunk.getArgumentsDelta().length())));
+            }
         }
     }
-    
+
     /**
      * 从累加器构建ToolCall
      */
     private ToolCall buildToolCall(StreamAccumulator acc) {
+        // 验证必要字段
+        if (acc.currentToolCallId == null) {
+            log.error("构建ToolCall时缺少toolCallId");
+        }
+        if (acc.currentFunctionName == null) {
+            log.error("构建ToolCall时缺少functionName, toolCallId: {}", acc.currentToolCallId);
+        }
+
+        String arguments = acc.currentArguments.toString();
+
         return ToolCall.builder()
                 .id(acc.currentToolCallId)
                 .type("function")
                 .function(FunctionCall.builder()
                         .name(acc.currentFunctionName)
-                        .arguments(acc.currentArguments.toString())
+                        .arguments(arguments)
                         .build())
                 .build();
     }
-    
+
     /**
      * 从累加器构建Message
      */
     private Message buildMessageFromAccumulator(StreamAccumulator acc) {
         // 如果还有未完成的工具调用，添加它
-        if (acc.currentToolCallId != null) {
+        if (acc.currentToolCallId != null && !acc.currentToolCallId.isEmpty()) {
+
             acc.toolCalls.add(buildToolCall(acc));
+
+            // 清空当前工具调用状态，防止重复添加
+            acc.currentToolCallId = null;
+            acc.currentFunctionName = null;
+            acc.currentArguments = new StringBuilder();
         }
-        
+
         String content = acc.contentBuilder.toString();
-        if (!acc.toolCalls.isEmpty()) {
-            return Message.assistant(content.isEmpty() ? null : content, acc.toolCalls);
+
+        // 记录构建的消息信息
+        log.info("构建Assistant消息: content_length={}, toolCalls_count={}",
+                content.length(), acc.toolCalls.size());
+
+        // 去重：移除id为空或重复的工具调用
+        List<ToolCall> validToolCalls = new ArrayList<>();
+        Set<String> seenIds = new HashSet<>();
+
+        for (int i = 0; i < acc.toolCalls.size(); i++) {
+            ToolCall tc = acc.toolCalls.get(i);
+
+            // 检查id是否有效
+            if (tc.getId() == null || tc.getId().trim().isEmpty()) {
+                log.error("工具调用#{}缺少id，跳过此工具调用", i);
+                continue;
+            }
+
+            // 检查是否重复
+            if (seenIds.contains(tc.getId())) {
+                log.warn("发现重复的工具调用id: {}，跳过重复项", tc.getId());
+                continue;
+            }
+
+            // 检查function对象
+            if (tc.getFunction() == null) {
+                log.error("工具调用#{} (id={})缺少function对象，跳过此工具调用", i, tc.getId());
+                continue;
+            }
+
+            // 检查function.name
+            if (tc.getFunction().getName() == null || tc.getFunction().getName().trim().isEmpty()) {
+                log.error("工具调用#{} (id={})缺少function.name，跳过此工具调用", i, tc.getId());
+                continue;
+            }
+
+            // 检查arguments
+            if (tc.getFunction().getArguments() == null) {
+                log.warn("工具调用#{} (id={}, name={})的arguments为null，将使用空对象",
+                        i, tc.getId(), tc.getFunction().getName());
+            }
+
+            // 添加到有效列表
+            validToolCalls.add(tc);
+            seenIds.add(tc.getId());
+
+            log.info("有效工具调用#{}: id={}, function={}, arguments_length={}",
+                    validToolCalls.size() - 1,
+                    tc.getId(),
+                    tc.getFunction().getName(),
+                    tc.getFunction().getArguments() != null ? tc.getFunction().getArguments().length() : 0);
+        }
+
+        log.info("过滤后有效工具调用数量: {} (原始: {})", validToolCalls.size(), acc.toolCalls.size());
+
+        if (!validToolCalls.isEmpty()) {
+            return Message.assistant(content.isEmpty() ? null : content, validToolCalls);
         } else {
             return Message.assistant(content);
         }
     }
-    
+
     /**
      * 处理assistant消息
      */
@@ -327,38 +418,40 @@ public class AgentExecutor {
         if (assistantMessage.getToolCalls() == null || assistantMessage.getToolCalls().isEmpty()) {
             // 没有工具调用，增加计数器
             consecutiveNoToolCallSteps++;
-            
+
             // 如果连续多步都只是思考没有行动,强制终止
             if (consecutiveNoToolCallSteps >= MAX_THINKING_STEPS) {
-                log.warn("Agent has been thinking for {} consecutive steps without taking action, forcing completion", 
+                log.warn("Agent has been thinking for {} consecutive steps without taking action, forcing completion",
                         consecutiveNoToolCallSteps);
                 return Mono.just(true); // 强制结束
             }
-            
+
             log.info("No tool calls, finishing step (consecutive thinking steps: {})", consecutiveNoToolCallSteps);
             return Mono.just(true);
         }
-        
+
         // 有工具调用,重置计数器
         consecutiveNoToolCallSteps = 0;
-        
+
         // 执行所有工具调用
+        log.info("executeToolCalls: {}", assistantMessage.getToolCalls());
+
         return executeToolCalls(assistantMessage.getToolCalls())
                 .then(Mono.just(false)); // 继续循环
     }
-    
+
     /**
      * 执行工具调用
      */
     private Mono<Void> executeToolCalls(List<ToolCall> toolCalls) {
         // 并行执行所有工具调用
         List<Mono<Message>> toolResultMonos = new ArrayList<>();
-        
+
         for (ToolCall toolCall : toolCalls) {
             Mono<Message> resultMono = executeToolCall(toolCall);
             toolResultMonos.add(resultMono);
         }
-        
+
         // 等待所有工具执行完成，并添加结果到上下文
         return Flux.merge(toolResultMonos)
                 .collectList()
@@ -367,7 +460,7 @@ public class AgentExecutor {
                     return context.appendMessage(results);
                 });
     }
-    
+
     /**
      * 执行单个工具调用
      */
@@ -380,7 +473,7 @@ public class AgentExecutor {
                     "Error: Tool not found: null"
             ));
         }
-        
+
         if (toolCall.getFunction() == null) {
             log.error("ToolCall {} has null function", toolCall.getId());
             return Mono.just(Message.tool(
@@ -388,11 +481,11 @@ public class AgentExecutor {
                     "Error: Tool not found: null"
             ));
         }
-        
+
         String toolName = toolCall.getFunction().getName();
         String arguments = toolCall.getFunction().getArguments();
         String rawToolCallId = toolCall.getId();
-        
+
         // 验证工具名
         if (toolName == null || toolName.trim().isEmpty()) {
             log.error("ToolCall {} has null or empty tool name. ToolCall: {}", rawToolCallId, toolCall);
@@ -401,7 +494,7 @@ public class AgentExecutor {
                     "Error: Tool not found: null"
             ));
         }
-        
+
         // 验证并标准化toolCallId
         final String toolCallId;
         if (rawToolCallId == null || rawToolCallId.trim().isEmpty()) {
@@ -410,10 +503,10 @@ public class AgentExecutor {
         } else {
             toolCallId = rawToolCallId;
         }
-        
+
         log.info("Executing tool: {} with id: {}", toolName, toolCallId);
         log.debug("Tool arguments (raw): {}", arguments);
-        
+
         // 验证参数并标准化
         String normalizedArgs = arguments;
         if (arguments == null || arguments.trim().isEmpty()) {
@@ -429,7 +522,7 @@ public class AgentExecutor {
                     String unescaped = trimmed.substring(1, trimmed.length() - 1)
                             .replace("\\\"", "\"")
                             .replace("\\\\", "\\");
-                    log.warn("Detected double-escaped JSON arguments for tool {}. Original: {}, Unescaped: {}", 
+                    log.warn("Detected double-escaped JSON arguments for tool {}. Original: {}, Unescaped: {}",
                             toolName, arguments, unescaped);
                     normalizedArgs = unescaped;
                 } catch (Exception e) {
@@ -437,36 +530,36 @@ public class AgentExecutor {
                 }
             }
         }
-        
+
         // 创建工具调用的签名用于重复检测 (使用标准化后的参数)
         final String toolSignature = toolName + ":" + normalizedArgs;
-        
+
         // 检查是否为不完整的 JSON
         String trimmedArgs = normalizedArgs.trim();
         if (trimmedArgs.startsWith("{") && !trimmedArgs.endsWith("}")) {
             log.error("Incomplete JSON arguments for tool {}: {}", toolName, normalizedArgs);
-            
+
             // 记录不完整JSON错误
             recentToolErrors.add(toolSignature);
             if (recentToolErrors.size() > MAX_REPEATED_ERRORS) {
                 recentToolErrors.remove(0);
             }
-            
+
             String errorMsg = "Error: Incomplete tool call arguments received from LLM. Arguments: " + normalizedArgs;
-            
+
             // 检查是否重复出现相同错误
             boolean allSame = recentToolErrors.stream()
                     .allMatch(sig -> sig.equals(toolSignature));
             if (allSame && recentToolErrors.size() >= MAX_REPEATED_ERRORS) {
-                errorMsg += "\n\n⚠️ CRITICAL: This same incomplete JSON error has occurred " + 
-                           MAX_REPEATED_ERRORS + " times. The LLM appears to be stuck. " +
-                           "Please report this issue or try a different model.";
+                errorMsg += "\n\n⚠️ CRITICAL: This same incomplete JSON error has occurred " +
+                        MAX_REPEATED_ERRORS + " times. The LLM appears to be stuck. " +
+                        "Please report this issue or try a different model.";
                 log.error("Detected repeated incomplete JSON errors: {}", toolSignature);
             }
-            
+
             return Mono.just(Message.tool(toolCallId, errorMsg));
         }
-        
+
         final String finalArguments = normalizedArgs;
         return toolRegistry.execute(toolName, finalArguments)
                 .map(result -> {
@@ -482,28 +575,28 @@ public class AgentExecutor {
                         if (recentToolErrors.size() > MAX_REPEATED_ERRORS) {
                             recentToolErrors.remove(0);
                         }
-                        
+
                         // 检查是否所有最近的错误都相同
                         boolean allSame = recentToolErrors.stream()
                                 .allMatch(sig -> sig.equals(toolSignature));
-                        
+
                         content = "Error: " + result.getMessage();
                         if (!result.getOutput().isEmpty()) {
                             content += "\n" + result.getOutput();
                         }
-                        
+
                         // 如果检测到重复错误,添加警告
                         if (allSame && recentToolErrors.size() >= MAX_REPEATED_ERRORS) {
-                            content += "\n\n⚠️ WARNING: You have called this tool with the same arguments " + 
-                                      MAX_REPEATED_ERRORS + " times and it keeps failing. " +
-                                      "Please try a different approach or different arguments.";
+                            content += "\n\n⚠️ WARNING: You have called this tool with the same arguments " +
+                                    MAX_REPEATED_ERRORS + " times and it keeps failing. " +
+                                    "Please try a different approach or different arguments.";
                             log.warn("Detected repeated tool call errors: {}", toolSignature);
                         }
                     } else {
                         // REJECTED
                         content = result.getMessage();
                     }
-                    
+
                     return Message.tool(toolCallId, content);
                 })
                 .onErrorResume(e -> {
@@ -514,24 +607,24 @@ public class AgentExecutor {
                     ));
                 });
     }
-    
+
     /**
      * 格式化工具结果
      */
     private String formatToolResult(ToolResult result) {
         StringBuilder sb = new StringBuilder();
-        
+
         if (!result.getOutput().isEmpty()) {
             sb.append(result.getOutput());
         }
-        
+
         if (!result.getMessage().isEmpty()) {
             if (sb.length() > 0) {
                 sb.append("\n\n");
             }
             sb.append(result.getMessage());
         }
-        
+
         return sb.toString();
     }
 }

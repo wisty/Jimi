@@ -225,6 +225,12 @@ public class ToolRegistry {
                     propSchema.put("type", "string");
                 }
 
+                // 提取参数描述信息
+                String description = extractFieldDescription(field);
+                if (description != null && !description.isEmpty()) {
+                    propSchema.put("description", description);
+                }
+
                 properties.set(propName, propSchema);
                 
                 // 只有非 @Builder.Default 的字段才是必需的
@@ -247,5 +253,21 @@ public class ToolRegistry {
         log.debug("Generated schema for tool {}: {}", tool.getName(), schema.toPrettyString());
 
         return schema;
+    }
+
+    /**
+     * 提取字段的描述信息
+     * 优先级：@JsonPropertyDescription > Javadoc 注释
+     */
+    private String extractFieldDescription(Field field) {
+        // 尝试从 @JsonPropertyDescription 注解获取
+        com.fasterxml.jackson.annotation.JsonPropertyDescription desc = 
+            field.getAnnotation(com.fasterxml.jackson.annotation.JsonPropertyDescription.class);
+        if (desc != null && !desc.value().isEmpty()) {
+            return desc.value();
+        }
+        
+        // 未来可以扩展支持其他方式（如自定义注解）
+        return null;
     }
 }

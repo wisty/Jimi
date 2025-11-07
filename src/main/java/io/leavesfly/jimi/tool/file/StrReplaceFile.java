@@ -1,5 +1,6 @@
 package io.leavesfly.jimi.tool.file;
 
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import io.leavesfly.jimi.soul.approval.Approval;
 import io.leavesfly.jimi.soul.runtime.BuiltinSystemPromptArgs;
 import io.leavesfly.jimi.tool.AbstractTool;
@@ -46,17 +47,20 @@ public class StrReplaceFile extends AbstractTool<StrReplaceFile.Params> {
         /**
          * 要替换的旧字符串（可以是多行）
          */
+        @JsonPropertyDescription("需要被替换的原始字符串，必须精确匹配文件中的内容（包括空格、换行等）")
         private String old;
         
         /**
          * 替换后的新字符串（可以是多行）
          */
+        @JsonPropertyDescription("用于替换的新字符串。默认为空字符串（即删除 old 内容）")
         @Builder.Default
         private String newText = "";
         
         /**
          * 是否替换所有出现的位置
          */
+        @JsonPropertyDescription("是否替换文件中所有匹配的位置。true 表示全部替换，false 表示只替换第一次出现。默认为 false")
         @Builder.Default
         private boolean replaceAll = false;
     }
@@ -72,11 +76,13 @@ public class StrReplaceFile extends AbstractTool<StrReplaceFile.Params> {
         /**
          * 文件绝对路径
          */
+        @JsonPropertyDescription("要编辑的文件绝对路径，必须是完整路径（例如：/home/user/file.txt）")
         private String path;
         
         /**
          * 编辑操作（单个或列表）
          */
+        @JsonPropertyDescription("要执行的编辑操作列表，每个操作包含 old、newText 和 replaceAll 字段")
         private List<Edit> edits;
     }
     

@@ -1,5 +1,6 @@
 package io.leavesfly.jimi.tool.think;
 
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import io.leavesfly.jimi.tool.AbstractTool;
 import io.leavesfly.jimi.tool.ToolResult;
 import lombok.AllArgsConstructor;
@@ -52,6 +53,7 @@ public class Think extends AbstractTool<Think.Params> {
         /**
          * 思考内容
          */
+        @JsonPropertyDescription("需要记录的思考内容或思考过程，用于内部思考，不会产生可见输出")
         private String thought;
     }
 }
