@@ -311,8 +311,8 @@ public class Task extends AbstractTool<Task.Params> implements WireAware {
     private Mono<ToolResult> runSubagent(Agent agent, String prompt) {
         return Mono.defer(() -> {
             try {
-                // 1. 子历史文件
-                Path subHistoryFile = getSubagentHistoryFile();
+                // 1. 子历史文件（基于子 Agent 名称）
+                Path subHistoryFile = getSubagentHistoryFile(agent.getName());
 
                 // 2. 子上下文
                 Context subContext = createSubContext(subHistoryFile);
@@ -456,26 +456,45 @@ public class Task extends AbstractTool<Task.Params> implements WireAware {
 
     /**
      * 生成子 Agent 历史文件路径
+     * 基于子 Agent 名称生成固定的历史文件名，确保同一个子 Agent 复用相同的历史记录
+     * 
+     * @param subagentName 子 Agent 名称
+     * @return 子 Agent 历史文件路径
+     * @throws IOException 如果无法创建文件
      */
-    private Path getSubagentHistoryFile() throws IOException {
+    private Path getSubagentHistoryFile(String subagentName) throws IOException {
         Path mainHistoryFile = session.getHistoryFile();
         String baseName = mainHistoryFile.getFileName().toString();
-        String nameWithoutExt = baseName.substring(0, baseName.lastIndexOf('.'));
-        String ext = baseName.substring(baseName.lastIndexOf('.'));
-
-        Path parent = mainHistoryFile.getParent();
-
-        // 查找下一个可用的文件名
-        for (int i = 1; i < 1000; i++) {
-            Path candidate = parent.resolve(nameWithoutExt + "_sub_" + i + ext);
-            if (!Files.exists(candidate)) {
-                // 创建文件
-                Files.createFile(candidate);
-                log.debug("Created subagent history file: {}", candidate);
-                return candidate;
-            }
+        
+        // 安全解析文件名和扩展名
+        int dotIndex = baseName.lastIndexOf('.');
+        String nameWithoutExt;
+        String ext;
+        
+        if (dotIndex > 0) {
+            // 文件有扩展名
+            nameWithoutExt = baseName.substring(0, dotIndex);
+            ext = baseName.substring(dotIndex);
+        } else {
+            // 文件没有扩展名
+            nameWithoutExt = baseName;
+            ext = "";
         }
 
-        throw new IOException("Unable to create subagent history file");
+        Path parent = mainHistoryFile.getParent();
+        
+        // 基于子 Agent 名称生成固定的历史文件名
+        // 例如：history_sub_code.json, history_sub_test.json
+        Path subHistoryFile = parent.resolve(nameWithoutExt + "_sub_" + subagentName + ext);
+        
+        // 如果文件不存在则创建
+        if (!Files.exists(subHistoryFile)) {
+            Files.createFile(subHistoryFile);
+            log.debug("Created subagent history file: {}", subHistoryFile);
+        } else {
+            log.debug("Reusing existing subagent history file: {}", subHistoryFile);
+        }
+        
+        return subHistoryFile;
     }
 }

@@ -206,8 +206,7 @@ class AgentSpecLoader {
         // 处理子Agent
         if (data.containsKey("subagents")) {
             Map<String, SubagentSpec> subagents = new HashMap<>();
-            Map<String, Map<String, Object>> subagentsData =
-                    (Map<String, Map<String, Object>>) data.get("subagents");
+            Map<String, Map<String, Object>> subagentsData = (Map<String, Map<String, Object>>) data.get("subagents");
             for (Map.Entry<String, Map<String, Object>> entry : subagentsData.entrySet()) {
                 String subagentPath = (String) entry.getValue().get("path");
                 // 将相对路径转换为绝对路径
