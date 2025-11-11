@@ -4,7 +4,7 @@ import io.leavesfly.jimi.agent.AgentSpec;
 import io.leavesfly.jimi.soul.runtime.Runtime;
 import io.leavesfly.jimi.tool.Tool;
 import io.leavesfly.jimi.tool.ToolProvider;
-import io.leavesfly.jimi.tool.task.Task;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
