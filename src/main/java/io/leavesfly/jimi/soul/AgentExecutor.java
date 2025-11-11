@@ -291,8 +291,18 @@ public class AgentExecutor {
      * - 第一个chunk包含 id 和 function.name
      * - 后续chunk只包含 function.arguments 的增量（不包含id）
      * - 新的工具调用开始时才会有新的id
+     * <p>
+     * 容错处理：
+     * - 某些LLM可能先发送arguments，后发送id和name
+     * - 使用临时ID机制确保数据不丢失
      */
     private void handleToolCallChunk(StreamAccumulator acc, ChatCompletionChunk chunk) {
+        // 防御性检查
+        if (chunk == null) {
+            log.warn("收到null的ToolCall chunk，忽略");
+            return;
+        }
+
         if (isNewToolCallStart(chunk)) {
             startNewToolCall(acc, chunk);
         }
@@ -312,28 +322,57 @@ public class AgentExecutor {
      * 开始新的工具调用
      */
     private void startNewToolCall(StreamAccumulator acc, ChatCompletionChunk chunk) {
-        if (acc.currentToolCallId != null) {
-            acc.toolCalls.add(buildToolCall(acc));
-        }
+        String newToolCallId = chunk.getToolCallId();
 
-        acc.currentToolCallId = chunk.getToolCallId();
-        acc.currentFunctionName = chunk.getFunctionName();
-        acc.currentArguments = new StringBuilder();
+        // 检查是否是对临时ID的替换（临时ID以"temp_"开头）
+        boolean isReplacingTempId = acc.currentToolCallId != null
+                && acc.currentToolCallId.startsWith("temp_")
+                && !newToolCallId.startsWith("temp_");
+
+        if (isReplacingTempId) {
+            // 用实际ID替换临时ID，保留已累积的arguments
+            log.debug("用实际ID {} 替换临时ID {}", newToolCallId, acc.currentToolCallId);
+            acc.currentToolCallId = newToolCallId;
+            // 更新functionName（如果有）
+            if (chunk.getFunctionName() != null) {
+                acc.currentFunctionName = chunk.getFunctionName();
+            }
+        } else {
+            // 这是一个全新的工具调用
+            if (acc.currentToolCallId != null) {
+                // 保存前一个工具调用
+                acc.toolCalls.add(buildToolCall(acc));
+            }
+
+            // 初始化新的工具调用
+            acc.currentToolCallId = newToolCallId;
+            acc.currentFunctionName = chunk.getFunctionName();
+            acc.currentArguments = new StringBuilder();
+        }
     }
 
     /**
      * 更新函数名（处理函数名在后续chunk中才出现的情况）
+     * <p>
+     * 注意：允许覆盖临时上下文中的null函数名
      */
     private void updateFunctionName(StreamAccumulator acc, ChatCompletionChunk chunk) {
-        if (chunk.getFunctionName() != null && !chunk.getFunctionName().isEmpty()) {
-            if (acc.currentToolCallId != null && acc.currentFunctionName == null) {
-                acc.currentFunctionName = chunk.getFunctionName();
-            }
+        String functionName = chunk.getFunctionName();
+        if (functionName == null || functionName.isEmpty()) {
+            return;
+        }
+
+        // 仅当当前有工具调用上下文，且函数名为空时才更新
+        if (acc.currentToolCallId != null && acc.currentFunctionName == null) {
+            acc.currentFunctionName = functionName;
+            log.debug("更新toolCallId={} 的函数名: {}", acc.currentToolCallId, functionName);
         }
     }
 
     /**
      * 累积参数增量
+     * <p>
+     * 容错机制：当收到arguments但没有toolCallId时，创建临时上下文
      */
     private void appendArgumentsDelta(StreamAccumulator acc, ChatCompletionChunk chunk) {
         String argumentsDelta = chunk.getArgumentsDelta();
@@ -341,12 +380,31 @@ public class AgentExecutor {
             return;
         }
 
-        if (acc.currentToolCallId != null) {
-            acc.currentArguments.append(argumentsDelta);
-        } else {
-            log.error("收到孤立的argumentsDelta（没有对应的currentToolCallId）: '{}'",
-                    argumentsDelta.substring(0, Math.min(50, argumentsDelta.length())));
+        // 如果没有当前工具调用上下文，创建临时上下文
+        if (acc.currentToolCallId == null) {
+            initializeTempToolCallContext(acc, argumentsDelta);
         }
+
+        // 累积参数
+        acc.currentArguments.append(argumentsDelta);
+    }
+
+    /**
+     * 初始化临时工具调用上下文
+     * <p>
+     * 某些LLM可能在第一个chunk就发送arguments，此时还没有toolCallId
+     * 使用纳秒时间戳+线程ID确保唯一性
+     */
+    private void initializeTempToolCallContext(StreamAccumulator acc, String firstArgumentsDelta) {
+        String tempId = "temp_" + System.nanoTime() + "_" + Thread.currentThread().getId();
+        
+        log.warn("收到argumentsDelta但currentToolCallId为null，创建临时上下文: id={}, argumentsDelta长度: {}",
+                tempId, firstArgumentsDelta.length());
+        log.debug("临时上下文的首个argumentsDelta: {}", firstArgumentsDelta);
+
+        acc.currentToolCallId = tempId;
+        acc.currentFunctionName = null;  // 等待后续chunk提供
+        acc.currentArguments = new StringBuilder();
     }
 
     /**
@@ -374,14 +432,26 @@ public class AgentExecutor {
     }
 
     /**
-     * 从累加器构建Message
+     * 从累加器构建完整的Message
      */
     private Message buildMessageFromAccumulator(StreamAccumulator acc) {
+
         finalizeCurrentToolCall(acc);
 
         String content = acc.contentBuilder.toString();
-        log.info("构建Assistant消息: content_length={}, toolCalls_count={}",
-                content.length(), acc.toolCalls.size());
+        int contentLength = content.length();
+        int toolCallsCount = acc.toolCalls.size();
+        
+        // 简化日志，避免打印过长内容
+        log.info("构建Assistant消息: content_length={}, toolCalls_count={}", contentLength, toolCallsCount);
+        
+        // 详细内容使用 debug 级别
+        if (log.isDebugEnabled() && contentLength > 0) {
+            String contentPreview = contentLength > 100 
+                    ? content.substring(0, 100) + "... (截断)" 
+                    : content;
+            log.debug("Assistant内容预览: {}", contentPreview);
+        }
 
         List<ToolCall> validToolCalls = toolCallFilter.filterValid(acc.toolCalls);
         log.info("过滤后有效工具调用数量: {} (原始: {})", validToolCalls.size(), acc.toolCalls.size());
@@ -426,10 +496,24 @@ public class AgentExecutor {
         // 有工具调用,重置计数器
         consecutiveNoToolCallSteps = 0;
 
-        // 执行所有工具调用
-        log.info("executeToolCalls: {}", assistantMessage.getToolCalls());
+        // 执行所有工具调用（简化日志，避免打印超长JSON）
+        List<ToolCall> toolCalls = assistantMessage.getToolCalls();
+        log.info("准备执行 {} 个工具调用", toolCalls.size());
+        
+        // 详细日志使用 debug 级别，并对每个工具调用单独记录
+        if (log.isDebugEnabled()) {
+            for (int i = 0; i < toolCalls.size(); i++) {
+                ToolCall tc = toolCalls.get(i);
+                String argsPreview = tc.getFunction().getArguments();
+                if (argsPreview != null && argsPreview.length() > 200) {
+                    argsPreview = argsPreview.substring(0, 200) + "... (截断，总长度: " + argsPreview.length() + ")";
+                }
+                log.debug("工具调用 #{}: id={}, function={}, args={}", 
+                        i + 1, tc.getId(), tc.getFunction().getName(), argsPreview);
+            }
+        }
 
-        return executeToolCalls(assistantMessage.getToolCalls())
+        return executeToolCalls(toolCalls)
                 .then(Mono.just(false)); // 继续循环
     }
 
@@ -439,13 +523,13 @@ public class AgentExecutor {
     private Mono<Void> executeToolCalls(List<ToolCall> toolCalls) {
         log.info("Starting execution of {} tool calls", toolCalls.size());
 
-        // 并行执行所有工具调用
+        // 执行所有工具调用
         List<Mono<Message>> toolResultMonos = new ArrayList<>();
 
         for (int i = 0; i < toolCalls.size(); i++) {
             final int toolIndex = i; // 必须是final类型供lambda使用
             ToolCall toolCall = toolCalls.get(i);
-//            log.debug("Preparing to execute tool call #{}: {}", toolIndex, toolCall);
+
             Mono<Message> resultMono = executeToolCall(toolCall)
                     .doOnError(e -> log.error("Tool call #{} failed", toolIndex, e))
                     .onErrorResume(e -> {

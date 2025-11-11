@@ -229,40 +229,44 @@ public class Task extends AbstractTool<Task.Params> implements WireAware {
     /**
      * 懒加载所有子 Agent（首次调用时执行）
      * 使用双重检查锁定确保线程安全
+     * 返回 Mono 以支持响应式编程
      */
-    private void ensureSubagentsLoaded() {
+    private Mono<Void> ensureSubagentsLoaded() {
         if (!subagentsLoaded) {
             synchronized (this) {
                 if (!subagentsLoaded) {
-                    loadSubagents();
-                    subagentsLoaded = true;
+                    return loadSubagents()
+                            .doOnSuccess(v -> subagentsLoaded = true);
                 }
             }
         }
+        return Mono.empty();
     }
 
     /**
      * 加载所有子 Agent（内部方法）
+     * 返回 Mono 以支持响应式编程
      */
-    private void loadSubagents() {
-        for (Map.Entry<String, SubagentSpec> entry : subagentSpecs.entrySet()) {
-            String name = entry.getKey();
-            SubagentSpec spec = entry.getValue();
+    private Mono<Void> loadSubagents() {
+        return reactor.core.publisher.Flux.fromIterable(subagentSpecs.entrySet())
+                .flatMap(entry -> {
+                    String name = entry.getKey();
+                    SubagentSpec spec = entry.getValue();
 
-            try {
-                log.debug("Loading subagent: {}", name);
+                    log.debug("Loading subagent: {}", name);
 
-                // 使用注入的 AgentRegistry 加载子 Agent
-                Agent agent = agentRegistry.loadSubagent(spec, runtime).block();
-
-                if (agent != null) {
-                    subagents.put(name, agent);
-                    log.info("Loaded subagent: {} -> {}", name, agent.getName());
-                }
-            } catch (Exception e) {
-                log.error("Failed to load subagent: {}", name, e);
-            }
-        }
+                    // 使用注入的 AgentRegistry 加载子 Agent（响应式）
+                    return agentRegistry.loadSubagent(spec, runtime)
+                            .doOnSuccess(agent -> {
+                                if (agent != null) {
+                                    subagents.put(name, agent);
+                                    log.info("Loaded subagent: {} -> {}", name, agent.getName());
+                                }
+                            })
+                            .doOnError(e -> log.error("Failed to load subagent: {}", name, e))
+                            .onErrorResume(e -> Mono.empty()); // 忽略单个加载失败
+                })
+                .then();
     }
 
     @Override
@@ -282,27 +286,28 @@ public class Task extends AbstractTool<Task.Params> implements WireAware {
             return Mono.just(ToolResult.error("Prompt cannot be empty", "Invalid parameters"));
         }
 
-        // 懒加载 subagents（首次调用时）
-        ensureSubagentsLoaded();
+        // 懒加载 subagents（首次调用时，响应式方式）
+        return ensureSubagentsLoaded()
+                .then(Mono.defer(() -> {
+                    // 检查子 Agent 是否存在
+                    if (!subagents.containsKey(params.getSubagentName())) {
+                        return Mono.just(ToolResult.error(
+                                "Subagent not found: " + params.getSubagentName(),
+                                "Subagent not found"
+                        ));
+                    }
 
-        // 检查子 Agent 是否存在
-        if (!subagents.containsKey(params.getSubagentName())) {
-            return Mono.just(ToolResult.error(
-                    "Subagent not found: " + params.getSubagentName(),
-                    "Subagent not found"
-            ));
-        }
+                    Agent subagent = subagents.get(params.getSubagentName());
 
-        Agent subagent = subagents.get(params.getSubagentName());
-
-        return runSubagent(subagent, params.getPrompt())
-                .onErrorResume(e -> {
-                    log.error("Failed to run subagent", e);
-                    return Mono.just(ToolResult.error(
-                            "Failed to run subagent: " + e.getMessage(),
-                            "Failed to run subagent"
-                    ));
-                });
+                    return runSubagent(subagent, params.getPrompt())
+                            .onErrorResume(e -> {
+                                log.error("Failed to run subagent", e);
+                                return Mono.just(ToolResult.error(
+                                        "Failed to run subagent: " + e.getMessage(),
+                                        "Failed to run subagent"
+                                ));
+                            });
+                }));
     }
 
     /**
@@ -376,19 +381,18 @@ public class Task extends AbstractTool<Task.Params> implements WireAware {
     }
 
     /**
-     * 桥接子 Wire 到父 Wire，仅转发审批请求
+     * 桥接子 Wire 到父 Wire，转发所有消息以实现子Agent执行过程可视化
      * 返回订阅对象以便在运行结束时释放
      */
     private Disposable bridgeWireEvents(Wire subWire) {
         if (parentWire != null) {
             return subWire.asFlux().subscribe(msg -> {
-                if (msg instanceof ApprovalRequest) {
-                    log.debug("Forwarding approval request from subagent to parent wire");
-                    parentWire.send(msg);
-                }
+                // 转发所有 Wire 消息到主 Wire，实现子Agent执行过程可视化
+                log.debug("Forwarding subagent wire message: {}", msg.getClass().getSimpleName());
+                parentWire.send(msg);
             });
         } else {
-            log.debug("Parent wire not available, subagent approval requests will not be forwarded");
+            log.debug("Parent wire not available, subagent messages will not be forwarded");
             return null;
         }
     }

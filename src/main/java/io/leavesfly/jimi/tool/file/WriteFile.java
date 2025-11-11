@@ -143,11 +143,14 @@ public class WriteFile extends AbstractTool<WriteFile.Params> {
                         }
                         
                         try {
+                            // 处理转义序列（将字面量 \n、\t、\r 转换为真正的控制字符）
+                            String processedContent = unescapeContent(params.content);
+                            
                             // 写入文件
                             if ("overwrite".equals(params.mode)) {
-                                Files.writeString(targetPath, params.content);
+                                Files.writeString(targetPath, processedContent);
                             } else {
-                                Files.writeString(targetPath, params.content, 
+                                Files.writeString(targetPath, processedContent, 
                                     StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                             }
                             
@@ -214,5 +217,35 @@ public class WriteFile extends AbstractTool<WriteFile.Params> {
         }
         
         return null;
+    }
+    
+    /**
+     * 处理字面量转义序列，将它们转换为真正的控制字符
+     * <p>
+     * 场景：当 LLM 生成的 JSON 中包含双重转义（\\n）时，Jackson 会将其解析为字面量 "\n"
+     * 而不是真正的换行符。此方法将这些字面量转换为实际的控制字符。
+     * 
+     * @param content 原始内容
+     * @return 处理后的内容
+     */
+    private String unescapeContent(String content) {
+        if (content == null) {
+            return null;
+        }
+        
+        // 检测是否包含字面量转义序列
+        if (!content.contains("\\n") && !content.contains("\\t") && 
+            !content.contains("\\r") && !content.contains("\\\\")) {
+            return content;
+        }
+        
+        log.debug("Detected literal escape sequences in content, unescaping...");
+        
+        // 将字面量转义序列转换为真正的控制字符
+        return content
+            .replace("\\n", "\n")    // 换行
+            .replace("\\t", "\t")    // 制表符
+            .replace("\\r", "\r")    // 回车
+            .replace("\\\\", "\\");   // 反斜杠
     }
 }

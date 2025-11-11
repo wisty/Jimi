@@ -38,7 +38,6 @@ public class ToolCallFilter {
 
             validToolCalls.add(tc);
             seenIds.add(tc.getId());
-            logValidToolCall(tc, validToolCalls.size() - 1);
         }
 
         return validToolCalls;
@@ -76,14 +75,5 @@ public class ToolCallFilter {
         return true;
     }
 
-    /**
-     * 记录有效工具调用信息
-     */
-    private void logValidToolCall(ToolCall tc, int index) {
-        log.info("有效工具调用#{}: id={}, function={}, arguments_length={}",
-                index,
-                tc.getId(),
-                tc.getFunction().getName(),
-                tc.getFunction().getArguments() != null ? tc.getFunction().getArguments().length() : 0);
-    }
+
 }

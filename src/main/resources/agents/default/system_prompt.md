@@ -266,11 +266,6 @@
 
 ### 嵌套引号处理示例
 
-❌ **错误示例**（会导致JSON解析失败）：
-```json
-{"command": "find . -name "*.txt""}
-```
-
 ✅ **正确示例**（正确转义嵌套引号）：
 ```json
 {"command": "find . -name \"*.txt\""}
@@ -294,13 +289,6 @@
 {
   "command": "find . -type f -name \".*\" -o -type f -name \"*\" | head -50",
   "timeout": 10
-}
-```
-
-**包含反斜杠和引号的路径**：
-```json
-{
-  "path": "C:\\Users\\Documents\\file with \"quotes\".txt"
 }
 ```
 
