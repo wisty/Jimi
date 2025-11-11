@@ -458,7 +458,7 @@ public class ShellUI implements AutoCloseable {
         outputFormatter.println("");
         printBanner();
         outputFormatter.println("");
-        outputFormatter.printSuccess("Welcome to Jimi - Java Implementation of Moonshot Intelligence");
+        outputFormatter.printSuccess("Welcome to Jimi ");
         outputFormatter.printInfo("Type /help for available commands, or just start chatting!");
         outputFormatter.println("");
     }
