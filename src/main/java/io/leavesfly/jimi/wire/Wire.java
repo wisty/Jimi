@@ -5,7 +5,7 @@ import reactor.core.publisher.Flux;
 
 /**
  * Wire 消息总线接口
- * 用于 Soul 和 UI 之间的解耦通信
+ * 用于 Engine 和 UI 之间的解耦通信
  */
 public interface Wire {
     

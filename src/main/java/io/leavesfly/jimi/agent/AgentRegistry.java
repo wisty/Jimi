@@ -1,8 +1,8 @@
 package io.leavesfly.jimi.agent;
 
 import io.leavesfly.jimi.exception.AgentSpecException;
-import io.leavesfly.jimi.soul.runtime.BuiltinSystemPromptArgs;
-import io.leavesfly.jimi.soul.runtime.Runtime;
+import io.leavesfly.jimi.engine.runtime.BuiltinSystemPromptArgs;
+import io.leavesfly.jimi.engine.runtime.Runtime;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Autowired;

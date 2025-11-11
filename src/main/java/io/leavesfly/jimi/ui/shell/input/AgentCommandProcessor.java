@@ -30,7 +30,7 @@ public class AgentCommandProcessor implements InputProcessor {
         out.printInfo("执行: " + input);
         
         try {
-            // 运行 Soul，阻塞等待完成
+            // 运行 Engine，阻塞等待完成
             context.getSoul().run(input).block();
             
             // 如果成功，打印完成消息

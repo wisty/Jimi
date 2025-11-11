@@ -1,8 +1,9 @@
 package io.leavesfly.jimi.tool.file;
 
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import io.leavesfly.jimi.soul.approval.Approval;
-import io.leavesfly.jimi.soul.runtime.BuiltinSystemPromptArgs;
+import io.leavesfly.jimi.engine.approval.ApprovalResponse;
+import io.leavesfly.jimi.engine.approval.Approval;
+import io.leavesfly.jimi.engine.runtime.BuiltinSystemPromptArgs;
 import io.leavesfly.jimi.tool.AbstractTool;
 import io.leavesfly.jimi.tool.ToolResult;
 import lombok.AllArgsConstructor;
@@ -164,7 +165,7 @@ public class StrReplaceFile extends AbstractTool<StrReplaceFile.Params> {
                 // 请求审批
                 return approval.requestApproval("replace-file", EDIT_ACTION, String.format("Edit file `%s`", params.path))
                     .flatMap(response -> {
-                        if (response == io.leavesfly.jimi.soul.approval.ApprovalResponse.REJECT) {
+                        if (response == ApprovalResponse.REJECT) {
                             return Mono.just(ToolResult.rejected());
                         }
                         

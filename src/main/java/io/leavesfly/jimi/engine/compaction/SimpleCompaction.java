@@ -1,4 +1,4 @@
-package io.leavesfly.jimi.soul.compaction;
+package io.leavesfly.jimi.engine.compaction;
 
 import io.leavesfly.jimi.llm.LLM;
 import io.leavesfly.jimi.llm.message.ContentPart;

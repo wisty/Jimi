@@ -37,7 +37,7 @@ public class InitCommandHandler implements CommandHandler {
             // 构建 INIT 提示词
             String initPrompt = buildInitPrompt(workDir);
             
-            // 直接使用当前 Soul 运行分析任务
+            // 直接使用当前 Engine 运行分析任务
             context.getSoul().run(initPrompt).block();
             
             out.printSuccess("✅ 代码库分析完成！");

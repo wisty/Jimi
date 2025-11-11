@@ -1,7 +1,7 @@
 package io.leavesfly.jimi.tool.file;
 
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import io.leavesfly.jimi.soul.runtime.BuiltinSystemPromptArgs;
+import io.leavesfly.jimi.engine.runtime.BuiltinSystemPromptArgs;
 import io.leavesfly.jimi.tool.AbstractTool;
 import io.leavesfly.jimi.tool.ToolResult;
 import lombok.AllArgsConstructor;

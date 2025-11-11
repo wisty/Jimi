@@ -1,6 +1,7 @@
 package io.leavesfly.jimi.soul.toolcall;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.leavesfly.jimi.engine.toolcall.ArgumentsNormalizer;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

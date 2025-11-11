@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.leavesfly.jimi.soul.toolcall.ArgumentsNormalizer;
+import io.leavesfly.jimi.engine.toolcall.ArgumentsNormalizer;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 
@@ -17,8 +17,8 @@ import java.util.*;
  * 工具注册表
  * 管理所有可用工具的注册、查找和调用
  * <p>
- * 注意：ToolRegistry 不是 Spring Bean，每个 JimiSoul 实例都有自己的 ToolRegistry
- * 因为不同的 Soul 可能有不同的工具配置和运行时参数
+ * 注意：ToolRegistry 不是 Spring Bean，每个 JimiEngine 实例都有自己的 ToolRegistry
+ * 因为不同的 Engine 可能有不同的工具配置和运行时参数
  */
 @Slf4j
 public class ToolRegistry {

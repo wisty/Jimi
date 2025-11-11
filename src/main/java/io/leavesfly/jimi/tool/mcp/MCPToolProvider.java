@@ -2,12 +2,10 @@ package io.leavesfly.jimi.tool.mcp;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.leavesfly.jimi.agent.AgentSpec;
-import io.leavesfly.jimi.soul.runtime.Runtime;
+import io.leavesfly.jimi.engine.runtime.Runtime;
 import io.leavesfly.jimi.tool.Tool;
 import io.leavesfly.jimi.tool.ToolProvider;
 import io.leavesfly.jimi.tool.ToolRegistry;
-import io.leavesfly.jimi.tool.mcp.MCPTool;
-import io.leavesfly.jimi.tool.mcp.MCPToolLoader;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;

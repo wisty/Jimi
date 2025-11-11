@@ -7,21 +7,21 @@ import io.leavesfly.jimi.agent.AgentRegistry;
 import io.leavesfly.jimi.agent.AgentSpec;
 
 import io.leavesfly.jimi.agent.SubagentSpec;
+import io.leavesfly.jimi.engine.compaction.SimpleCompaction;
 import io.leavesfly.jimi.session.Session;
-import io.leavesfly.jimi.soul.JimiSoul;
+import io.leavesfly.jimi.engine.JimiEngine;
 import io.leavesfly.jimi.agent.Agent;
-import io.leavesfly.jimi.soul.context.Context;
+import io.leavesfly.jimi.engine.context.Context;
 import io.leavesfly.jimi.llm.message.Message;
 import io.leavesfly.jimi.llm.message.MessageRole;
 import io.leavesfly.jimi.llm.message.TextPart;
-import io.leavesfly.jimi.soul.runtime.Runtime;
+import io.leavesfly.jimi.engine.runtime.Runtime;
 import io.leavesfly.jimi.tool.AbstractTool;
 import io.leavesfly.jimi.tool.ToolResult;
 import io.leavesfly.jimi.tool.ToolRegistry;
 import io.leavesfly.jimi.tool.ToolRegistryFactory;
 import io.leavesfly.jimi.tool.WireAware;
 import io.leavesfly.jimi.wire.Wire;
-import io.leavesfly.jimi.soul.approval.ApprovalRequest;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -325,8 +325,8 @@ public class Task extends AbstractTool<Task.Params> implements WireAware {
                 // 3. 子工具注册表
                 ToolRegistry subToolRegistry = createSubToolRegistry();
 
-                // 4. 子 JimiSoul
-                JimiSoul subSoul = createSubSoul(agent, subContext, subToolRegistry);
+                // 4. 子 JimiEngine
+                JimiEngine subSoul = createSubSoul(agent, subContext, subToolRegistry);
 
                 // 5. 事件桥接（仅审批请求），返回订阅以便释放
                 Disposable subscription = bridgeWireEvents(subSoul.getWire());
@@ -368,18 +368,18 @@ public class Task extends AbstractTool<Task.Params> implements WireAware {
     }
 
     /**
-     * 创建子 JimiSoul
+     * 创建子 JimiEngine
      */
-    private JimiSoul createSubSoul(Agent agent, Context subContext, ToolRegistry subToolRegistry) {
+    private JimiEngine createSubSoul(Agent agent, Context subContext, ToolRegistry subToolRegistry) {
         // 使用完整构造函数，传入isSubagent=true标记
-        return new JimiSoul(
+        return new JimiEngine(
                 agent,
                 runtime,
                 subContext,
                 subToolRegistry,
                 objectMapper,
                 new io.leavesfly.jimi.wire.WireImpl(),
-                new io.leavesfly.jimi.soul.compaction.SimpleCompaction(),
+                new SimpleCompaction(),
                 true  // 标记为子Agent
         );
     }
@@ -404,7 +404,7 @@ public class Task extends AbstractTool<Task.Params> implements WireAware {
     /**
      * 提取子 Agent 的最终响应
      */
-    private Mono<ToolResult> extractFinalResponse(Context subContext, JimiSoul subSoul, String originalPrompt) {
+    private Mono<ToolResult> extractFinalResponse(Context subContext, JimiEngine subSoul, String originalPrompt) {
         List<Message> history = subContext.getHistory();
 
         // 检查上下文是否有效

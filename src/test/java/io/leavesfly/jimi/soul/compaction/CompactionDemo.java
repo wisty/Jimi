@@ -2,6 +2,7 @@ package io.leavesfly.jimi.soul.compaction;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import io.leavesfly.jimi.engine.compaction.SimpleCompaction;
 import io.leavesfly.jimi.llm.LLM;
 import io.leavesfly.jimi.llm.MockChatProvider;
 import io.leavesfly.jimi.llm.message.Message;

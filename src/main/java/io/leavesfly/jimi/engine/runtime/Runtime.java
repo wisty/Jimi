@@ -1,9 +1,9 @@
-package io.leavesfly.jimi.soul.runtime;
+package io.leavesfly.jimi.engine.runtime;
 
 import io.leavesfly.jimi.config.JimiConfig;
 import io.leavesfly.jimi.llm.LLM;
 import io.leavesfly.jimi.session.Session;
-import io.leavesfly.jimi.soul.approval.Approval;
+import io.leavesfly.jimi.engine.approval.Approval;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

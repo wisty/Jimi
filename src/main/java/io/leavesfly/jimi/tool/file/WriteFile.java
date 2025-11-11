@@ -1,11 +1,11 @@
 package io.leavesfly.jimi.tool.file;
 
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import io.leavesfly.jimi.soul.approval.Approval;
-import io.leavesfly.jimi.soul.runtime.BuiltinSystemPromptArgs;
+import io.leavesfly.jimi.engine.approval.ApprovalResponse;
+import io.leavesfly.jimi.engine.approval.Approval;
+import io.leavesfly.jimi.engine.runtime.BuiltinSystemPromptArgs;
 import io.leavesfly.jimi.tool.AbstractTool;
 import io.leavesfly.jimi.tool.ToolResult;
-import io.leavesfly.jimi.tool.ToolResultBuilder;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -138,7 +138,7 @@ public class WriteFile extends AbstractTool<WriteFile.Params> {
                 // 请求审批
                 return approval.requestApproval("write-file", EDIT_ACTION, String.format("Write file `%s`", params.path))
                     .flatMap(response -> {
-                        if (response == io.leavesfly.jimi.soul.approval.ApprovalResponse.REJECT) {
+                        if (response == ApprovalResponse.REJECT) {
                             return Mono.just(ToolResult.rejected());
                         }
                         

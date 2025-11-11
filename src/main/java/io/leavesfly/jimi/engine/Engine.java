@@ -1,4 +1,4 @@
-package io.leavesfly.jimi.soul;
+package io.leavesfly.jimi.engine;
 
 import io.leavesfly.jimi.llm.message.ContentPart;
 import reactor.core.publisher.Mono;
@@ -7,10 +7,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Soul 接口
+ * Engine 接口
  * 定义 Agent 的核心行为
  */
-public interface Soul {
+public interface Engine {
     
     /**
      * 获取 Agent 名称

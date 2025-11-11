@@ -8,14 +8,14 @@ import io.leavesfly.jimi.llm.LLM;
 import io.leavesfly.jimi.llm.LLMFactory;
 import io.leavesfly.jimi.session.Session;
 import io.leavesfly.jimi.session.SessionManager;
-import io.leavesfly.jimi.soul.JimiSoul;
+import io.leavesfly.jimi.engine.JimiEngine;
 import io.leavesfly.jimi.agent.Agent;
-import io.leavesfly.jimi.soul.approval.Approval;
-import io.leavesfly.jimi.soul.compaction.Compaction;
-import io.leavesfly.jimi.soul.context.Context;
+import io.leavesfly.jimi.engine.approval.Approval;
+import io.leavesfly.jimi.engine.compaction.Compaction;
+import io.leavesfly.jimi.engine.context.Context;
 
-import io.leavesfly.jimi.soul.runtime.BuiltinSystemPromptArgs;
-import io.leavesfly.jimi.soul.runtime.Runtime;
+import io.leavesfly.jimi.engine.runtime.BuiltinSystemPromptArgs;
+import io.leavesfly.jimi.engine.runtime.Runtime;
 import io.leavesfly.jimi.tool.ToolRegistry;
 import io.leavesfly.jimi.tool.ToolRegistryFactory;
 import io.leavesfly.jimi.tool.ToolProvider;
@@ -63,16 +63,16 @@ public class JimiFactory {
 
 
     /**
-     * 创建完整的 Jimi Soul 实例
+     * 创建完整的 Jimi Engine 实例
      *
      * @param session        会话对象
      * @param agentSpecPath  Agent 规范文件路径（可选，null 表示使用默认 agent）
      * @param modelName      模型名称（可选，null 表示使用 Agent 配置或默认模型）
      * @param yolo           是否启用 YOLO 模式（自动批准所有操作）
      * @param mcpConfigFiles MCP 配置文件列表（可选）
-     * @return JimiSoul 实例的 Mono
+     * @return JimiEngine 实例的 Mono
      */
-    public Mono<JimiSoul> createSoul(
+    public Mono<JimiEngine> createSoul(
             Session session,
             Path agentSpecPath,
             String modelName,
@@ -81,7 +81,7 @@ public class JimiFactory {
     ) {
         return Mono.defer(() -> {
             try {
-                log.debug("Creating Jimi Soul for session: {}", session.getId());
+                log.debug("Creating Jimi Engine for session: {}", session.getId());
 
                 // 1. 加载 Agent 规范（优先加载以获取可能的 model 配置）
                 AgentSpec agentSpec = agentRegistry.loadAgentSpec(agentSpecPath).block();
@@ -124,16 +124,16 @@ public class JimiFactory {
                 // 7. 创建 ToolRegistry（包含 Task 工具和 MCP 工具）
                 ToolRegistry toolRegistry = createToolRegistry(builtinArgs, approval, agentSpec, runtime, mcpConfigFiles);
 
-                // 8. 创建 JimiSoul（注入 Compaction）
-                JimiSoul soul = new JimiSoul(agent, runtime, context, toolRegistry, objectMapper, new WireImpl(), compaction);
+                // 8. 创建 JimiEngine（注入 Compaction）
+                JimiEngine soul = new JimiEngine(agent, runtime, context, toolRegistry, objectMapper, new WireImpl(), compaction);
 
                 // 9. 恢复上下文历史
                 return context.restore()
                         .then(Mono.just(soul))
-                        .doOnSuccess(s -> log.info("Jimi Soul created successfully"));
+                        .doOnSuccess(s -> log.info("Jimi Engine created successfully"));
 
             } catch (Exception e) {
-                log.error("Failed to create Jimi Soul", e);
+                log.error("Failed to create Jimi Engine", e);
                 return Mono.error(e);
             }
         });

@@ -5,10 +5,8 @@ import io.leavesfly.jimi.agent.AgentRegistry;
 import io.leavesfly.jimi.agent.AgentSpec;
 import io.leavesfly.jimi.command.CommandContext;
 import io.leavesfly.jimi.command.CommandHandler;
-import io.leavesfly.jimi.exception.AgentSpecException;
-import io.leavesfly.jimi.soul.JimiSoul;
-import io.leavesfly.jimi.soul.runtime.Runtime;
-import io.leavesfly.jimi.tool.ToolRegistry;
+import io.leavesfly.jimi.engine.JimiEngine;
+import io.leavesfly.jimi.engine.runtime.Runtime;
 import io.leavesfly.jimi.tool.ToolRegistryFactory;
 import io.leavesfly.jimi.ui.shell.output.OutputFormatter;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +16,6 @@ import reactor.core.publisher.Mono;
 
 import java.nio.file.Path;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * /agents 命令处理器
@@ -218,7 +215,7 @@ public class AgentsCommandHandler implements CommandHandler {
      */
     private void runAgent(CommandContext context, String agentName) throws Exception {
         OutputFormatter out = context.getOutputFormatter();
-        JimiSoul soul = context.getSoul();
+        JimiEngine soul = context.getSoul();
         Runtime runtime = soul.getRuntime();
         
         // 检查当前是否已经是该 Agent
@@ -296,7 +293,7 @@ public class AgentsCommandHandler implements CommandHandler {
         // 执行切换
         log.info("Switching to agent: {}", agentName);
         
-        // 注意：由于 JimiSoul 的设计，Agent 是构造函数参数，无法直接替换
+        // 注意：由于 JimiEngine 的设计，Agent 是构造函数参数，无法直接替换
         // 这里我们需要提示用户重新启动或使用其他方式
         out.println();
         out.printWarning("⚠️  当前版本暂不支持运行时切换代理");

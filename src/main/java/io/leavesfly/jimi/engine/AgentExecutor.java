@@ -1,6 +1,7 @@
-package io.leavesfly.jimi.soul;
+package io.leavesfly.jimi.engine;
 
 import io.leavesfly.jimi.agent.Agent;
+import io.leavesfly.jimi.engine.context.Context;
 import io.leavesfly.jimi.exception.MaxStepsReachedException;
 import io.leavesfly.jimi.llm.ChatCompletionChunk;
 import io.leavesfly.jimi.llm.ChatCompletionResult;
@@ -10,14 +11,11 @@ import io.leavesfly.jimi.llm.message.Message;
 import io.leavesfly.jimi.llm.message.TextPart;
 import io.leavesfly.jimi.llm.message.ToolCall;
 import io.leavesfly.jimi.llm.message.FunctionCall;
-import io.leavesfly.jimi.soul.compaction.Compaction;
-import io.leavesfly.jimi.soul.context.Context;
-import io.leavesfly.jimi.soul.runtime.Runtime;
-import io.leavesfly.jimi.soul.toolcall.ArgumentsNormalizer;
-import io.leavesfly.jimi.soul.toolcall.ToolCallFilter;
-import io.leavesfly.jimi.soul.toolcall.ToolCallValidator;
-import io.leavesfly.jimi.soul.toolcall.ToolCallValidator.ValidationResult;
-import io.leavesfly.jimi.soul.toolcall.ToolErrorTracker;
+import io.leavesfly.jimi.engine.compaction.Compaction;
+import io.leavesfly.jimi.engine.runtime.Runtime;
+import io.leavesfly.jimi.engine.toolcall.ToolCallFilter;
+import io.leavesfly.jimi.engine.toolcall.ToolCallValidator;
+import io.leavesfly.jimi.engine.toolcall.ToolErrorTracker;
 import io.leavesfly.jimi.tool.ToolRegistry;
 import io.leavesfly.jimi.tool.ToolResult;
 import io.leavesfly.jimi.wire.Wire;

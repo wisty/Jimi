@@ -4,9 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.leavesfly.jimi.JimiFactory;
 import io.leavesfly.jimi.config.ConfigLoader;
 import io.leavesfly.jimi.config.JimiConfig;
+import io.leavesfly.jimi.engine.JimiEngine;
 import io.leavesfly.jimi.session.Session;
 import io.leavesfly.jimi.session.SessionManager;
-import io.leavesfly.jimi.soul.JimiSoul;
 import io.leavesfly.jimi.ui.shell.ShellUI;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -130,11 +130,11 @@ public class CliApplication implements CommandLineRunner, Runnable {
             System.out.println("✓ Session history file: " + session.getHistoryFile());
             System.out.println("✓ Working directory: " + session.getWorkDir());
 
-            // 使用注入的 JimiFactory 创建 Soul
-            JimiSoul soul = jimiFactory.createSoul(session, agentFile, modelName, yolo, mcpConfigFiles).block();
+            // 使用注入的 JimiFactory 创建 Engine
+            JimiEngine soul = jimiFactory.createSoul(session, agentFile, modelName, yolo, mcpConfigFiles).block();
 
             if (soul == null) {
-                System.err.println("Failed to create Jimi Soul");
+                System.err.println("Failed to create Jimi Engine");
                 System.exit(1);
                 return;
             }

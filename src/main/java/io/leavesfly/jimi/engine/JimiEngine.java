@@ -1,16 +1,16 @@
-package io.leavesfly.jimi.soul;
+package io.leavesfly.jimi.engine;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.leavesfly.jimi.engine.context.Context;
 import io.leavesfly.jimi.exception.LLMNotSetException;
 import io.leavesfly.jimi.llm.LLM;
 import io.leavesfly.jimi.agent.Agent;
 import io.leavesfly.jimi.llm.message.ContentPart;
 import io.leavesfly.jimi.llm.message.TextPart;
-import io.leavesfly.jimi.soul.compaction.Compaction;
-import io.leavesfly.jimi.soul.compaction.SimpleCompaction;
+import io.leavesfly.jimi.engine.compaction.Compaction;
+import io.leavesfly.jimi.engine.compaction.SimpleCompaction;
 
-import io.leavesfly.jimi.soul.context.Context;
-import io.leavesfly.jimi.soul.runtime.Runtime;
+import io.leavesfly.jimi.engine.runtime.Runtime;
 import io.leavesfly.jimi.tool.ToolRegistry;
 import io.leavesfly.jimi.tool.WireAware;
 import io.leavesfly.jimi.wire.Wire;
@@ -23,10 +23,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * JimiSoul - Soul 的核心实现
+ * JimiEngine - Engine 的核心实现
  * 
  * 职责（重构后）：
- * - 作为 Soul 接口的实现
+ * - 作为 Engine 接口的实现
  * - 协调各组件（AgentExecutor、Context等）
  * - 提供统一的对外API
  * - 管理组件生命周期
@@ -34,10 +34,10 @@ import java.util.Map;
  * 设计改进（v2.0）：
  * - 委托执行：将主循环逻辑委托给 AgentExecutor
  * - 轻量协调：仅负责组件装配和协调
- * - 单一职责：专注于提供 Soul 接口实现
+ * - 单一职责：专注于提供 Engine 接口实现
  */
 @Slf4j
-public class JimiSoul implements Soul {
+public class JimiEngine implements Engine {
 
     private static final int RESERVED_TOKENS = 50_000;
 
@@ -56,7 +56,7 @@ public class JimiSoul implements Soul {
      * @deprecated 推荐使用完整构造函数，通过 JimiFactory 创建并注入 Compaction
      */
     @Deprecated
-    public JimiSoul(
+    public JimiEngine(
             Agent agent,
             Runtime runtime,
             Context context,
@@ -71,7 +71,7 @@ public class JimiSoul implements Soul {
      * 完整构造函数（支持依赖注入）
      * 允许自定义 Wire 和 Compaction 实现
      */
-    public JimiSoul(
+    public JimiEngine(
             Agent agent,
             Runtime runtime,
             Context context,
@@ -87,7 +87,7 @@ public class JimiSoul implements Soul {
      * 最完整构造函数（支持子Agent标记）
      * 用于创建子Agent的JimiSoul实例
      */
-    public JimiSoul(
+    public JimiEngine(
             Agent agent,
             Runtime runtime,
             Context context,

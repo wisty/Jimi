@@ -1,7 +1,8 @@
 package io.leavesfly.jimi.tool.bash;
 
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import io.leavesfly.jimi.soul.approval.Approval;
+import io.leavesfly.jimi.engine.approval.ApprovalResponse;
+import io.leavesfly.jimi.engine.approval.Approval;
 import io.leavesfly.jimi.tool.AbstractTool;
 import io.leavesfly.jimi.tool.ToolResult;
 import io.leavesfly.jimi.tool.ToolResultBuilder;
@@ -98,7 +99,7 @@ public class Bash extends AbstractTool<Bash.Params> {
             // 请求审批
             return approval.requestApproval("bash", RUN_COMMAND_ACTION, String.format("Run command `%s`", params.command))
                 .flatMap(response -> {
-                    if (response == io.leavesfly.jimi.soul.approval.ApprovalResponse.REJECT) {
+                    if (response == ApprovalResponse.REJECT) {
                         return Mono.just(ToolResult.rejected());
                     }
                     

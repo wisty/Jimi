@@ -1,6 +1,6 @@
 package io.leavesfly.jimi.ui.shell;
 
-import io.leavesfly.jimi.soul.JimiSoul;
+import io.leavesfly.jimi.engine.JimiEngine;
 import io.leavesfly.jimi.llm.message.ContentPart;
 import io.leavesfly.jimi.llm.message.TextPart;
 import io.leavesfly.jimi.llm.message.ToolCall;
@@ -46,7 +46,7 @@ public class ShellUI implements AutoCloseable {
 
     private final Terminal terminal;
     private final LineReader lineReader;
-    private final JimiSoul soul;
+    private final JimiEngine soul;
     private final ToolVisualization toolVisualization;
     private final AtomicBoolean running;
     private final AtomicReference<String> currentStatus;
@@ -63,11 +63,11 @@ public class ShellUI implements AutoCloseable {
     /**
      * 创建 Shell UI
      *
-     * @param soul               JimiSoul 实例
+     * @param soul               JimiEngine 实例
      * @param applicationContext Spring 应用上下文（用于获取 CommandRegistry）
      * @throws IOException 终端初始化失败
      */
-    public ShellUI(JimiSoul soul, ApplicationContext applicationContext) throws IOException {
+    public ShellUI(JimiEngine soul, ApplicationContext applicationContext) throws IOException {
         this.soul = soul;
         this.toolVisualization = new ToolVisualization();
         this.running = new AtomicBoolean(false);

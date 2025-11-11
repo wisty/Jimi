@@ -1,9 +1,8 @@
-package io.leavesfly.jimi.soul.context;
+package io.leavesfly.jimi.engine.context;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.leavesfly.jimi.llm.message.Message;
-import io.leavesfly.jimi.soul.context.ContextRepository;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 

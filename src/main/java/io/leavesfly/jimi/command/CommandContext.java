@@ -1,6 +1,6 @@
 package io.leavesfly.jimi.command;
 
-import io.leavesfly.jimi.soul.JimiSoul;
+import io.leavesfly.jimi.engine.JimiEngine;
 import io.leavesfly.jimi.ui.shell.output.OutputFormatter;
 import lombok.Builder;
 import lombok.Getter;
@@ -16,9 +16,9 @@ import org.jline.terminal.Terminal;
 public class CommandContext {
     
     /**
-     * JimiSoul 实例
+     * JimiEngine 实例
      */
-    private final JimiSoul soul;
+    private final JimiEngine soul;
     
     /**
      * 终端实例
