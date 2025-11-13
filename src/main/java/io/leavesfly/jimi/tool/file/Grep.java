@@ -15,13 +15,17 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -39,6 +43,15 @@ import java.util.regex.PatternSyntaxException;
 public class Grep extends AbstractTool<Grep.Params> {
     
     private static final int MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    private static final int BINARY_CHECK_SIZE = 8192; // 检查前8KB判断是否为二进制
+    private static final List<String> BINARY_EXTENSIONS = Arrays.asList(
+        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".ico", ".svg",
+        ".pdf", ".zip", ".tar", ".gz", ".7z", ".rar",
+        ".exe", ".dll", ".so", ".dylib",
+        ".class", ".jar", ".war",
+        ".mp3", ".mp4", ".avi", ".mov",
+        ".DS_Store"
+    );
     private Path workDir;
     
     /**
@@ -178,9 +191,15 @@ public class Grep extends AbstractTool<Grep.Params> {
             Files.walkFileTree(searchPath, new SimpleFileVisitor<Path>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    String fileName = file.getFileName().toString();
+                    
+                    // 跳过隐藏文件
+                    if (fileName.startsWith(".")) {
+                        return FileVisitResult.CONTINUE;
+                    }
+                    
                     // 检查 glob 过滤
                     if (params.glob != null) {
-                        String fileName = file.getFileName().toString();
                         if (!matchesGlob(fileName, params.glob)) {
                             return FileVisitResult.CONTINUE;
                         }
@@ -191,12 +210,27 @@ public class Grep extends AbstractTool<Grep.Params> {
                         return FileVisitResult.CONTINUE;
                     }
                     
+                    // 跳过已知的二进制文件类型
+                    if (isBinaryFileByExtension(fileName)) {
+                        return FileVisitResult.CONTINUE;
+                    }
+                    
                     try {
                         searchFile(file, pattern, params, result);
                     } catch (Exception e) {
-                        log.warn("Failed to search file: {}", file, e);
+                        log.debug("Skipped file (likely binary): {}", file);
                     }
                     
+                    return FileVisitResult.CONTINUE;
+                }
+                
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                    // 跳过隐藏目录
+                    String dirName = dir.getFileName() == null ? "" : dir.getFileName().toString();
+                    if (dirName.startsWith(".") && !dir.equals(searchPath)) {
+                        return FileVisitResult.SKIP_SUBTREE;
+                    }
                     return FileVisitResult.CONTINUE;
                 }
             });
@@ -209,23 +243,35 @@ public class Grep extends AbstractTool<Grep.Params> {
      * 搜索单个文件
      */
     private void searchFile(Path file, Pattern pattern, Params params, SearchResult result) throws IOException {
-        List<String> lines = Files.readAllLines(file);
+        // 先检查是否为二进制文件
+        if (isBinaryFile(file)) {
+            return;
+        }
+        
         boolean fileMatched = false;
         int matchCount = 0;
+        int lineNumber = 0;
         
-        for (int i = 0; i < lines.size(); i++) {
-            String line = lines.get(i);
-            Matcher matcher = pattern.matcher(line);
-            
-            if (matcher.find()) {
-                fileMatched = true;
-                matchCount++;
+        try (BufferedReader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                lineNumber++;
+                Matcher matcher = pattern.matcher(line);
                 
-                if ("content".equals(params.outputMode)) {
-                    String prefix = params.lineNumber ? String.format("%d:", i + 1) : "";
-                    result.contentLines.add(String.format("%s:%s%s", file, prefix, line));
+                if (matcher.find()) {
+                    fileMatched = true;
+                    matchCount++;
+                    
+                    if ("content".equals(params.outputMode)) {
+                        String prefix = params.lineNumber ? String.format("%d:", lineNumber) : "";
+                        result.contentLines.add(String.format("%s:%s%s", file, prefix, line));
+                    }
                 }
             }
+        } catch (CharacterCodingException e) {
+            // 遇到编码错误，认为是二进制文件，静默跳过
+            log.debug("Skipped binary file: {}", file);
+            return;
         }
         
         if (fileMatched) {
@@ -244,6 +290,49 @@ public class Grep extends AbstractTool<Grep.Params> {
             return fileName.endsWith(ext);
         }
         return fileName.equals(glob);
+    }
+    
+    /**
+     * 根据文件扩展名判断是否为二进制文件
+     */
+    private boolean isBinaryFileByExtension(String fileName) {
+        String lowerFileName = fileName.toLowerCase();
+        return BINARY_EXTENSIONS.stream()
+            .anyMatch(lowerFileName::endsWith);
+    }
+    
+    /**
+     * 检测文件是否为二进制文件
+     * 通过读取文件前几个字节判断是否包含非文本字符
+     */
+    private boolean isBinaryFile(Path file) throws IOException {
+        byte[] bytes = new byte[BINARY_CHECK_SIZE];
+        int bytesRead;
+        
+        try (var is = Files.newInputStream(file)) {
+            bytesRead = is.read(bytes);
+        }
+        
+        if (bytesRead <= 0) {
+            return false;
+        }
+        
+        // 检查是否包含 NUL 字符或大量非ASCII字符
+        int nonAsciiCount = 0;
+        for (int i = 0; i < bytesRead; i++) {
+            byte b = bytes[i];
+            if (b == 0) {
+                // 包含 NUL 字符，很可能是二进制文件
+                return true;
+            }
+            if (b < 0x09 || (b > 0x0D && b < 0x20) || b == 0x7F) {
+                // 控制字符（除了 tab, LF, CR）
+                nonAsciiCount++;
+            }
+        }
+        
+        // 如果超过30%是非文本字符，认为是二进制文件
+        return (double) nonAsciiCount / bytesRead > 0.3;
     }
     
     /**
