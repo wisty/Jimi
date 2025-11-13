@@ -30,6 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -194,7 +195,7 @@ public class JimiFactory {
         // 列出工作目录文件列表（非递归）
         StringBuilder lsBuilder = new StringBuilder();
         try {
-            java.nio.file.Files.list(workDir).forEach(p -> {
+            Files.list(workDir).forEach(p -> {
                 String type = java.nio.file.Files.isDirectory(p) ? "dir" : "file";
                 lsBuilder.append(type).append("  ").append(p.getFileName().toString()).append("\n");
             });
