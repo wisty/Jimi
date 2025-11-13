@@ -41,7 +41,7 @@ import java.util.Map;
 @Slf4j
 public class JimiEngine implements Engine {
 
-    private static final int RESERVED_TOKENS = 50_00000;
+    private static final int RESERVED_TOKENS = 50_000;
 
     private final Agent agent;
     private final Runtime runtime;
