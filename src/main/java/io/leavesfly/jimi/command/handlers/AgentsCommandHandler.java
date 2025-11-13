@@ -57,12 +57,32 @@ public class AgentsCommandHandler implements CommandHandler {
         if (context.getArgCount() == 0) {
             listAllAgents(context);
         } else if (context.getArgCount() == 1) {
-            showAgentDetails(context, context.getArg(0));
+            showAgentDetails(context, normalizeAgentName(context.getArg(0)));
         } else if (context.getArgCount() == 2 && "run".equals(context.getArg(0))) {
-            runAgent(context, context.getArg(1));
+            runAgent(context, normalizeAgentName(context.getArg(1)));
         } else {
             showUsageHelp(context);
         }
+    }
+    
+    /**
+     * 规范化代理名称，去除尖括号等格式字符
+     * 
+     * @param agentName 原始代理名称，可能包含 <> 等字符
+     * @return 规范化后的代理名称
+     */
+    private String normalizeAgentName(String agentName) {
+        if (agentName == null) {
+            return null;
+        }
+        
+        // 去除尖括号
+        String normalized = agentName.trim();
+        if (normalized.startsWith("<") && normalized.endsWith(">")) {
+            normalized = normalized.substring(1, normalized.length() - 1);
+        }
+        
+        return normalized.trim();
     }
     
     /**
@@ -90,7 +110,7 @@ public class AgentsCommandHandler implements CommandHandler {
         
         // 分类逻辑（根据 name 判断）
         for (AgentSpec spec : specCache.values()) {
-            if ("default".equals(spec.getName())) {
+            if ("Default Agent".equals(spec.getName())) {
                 generalAgents.add(spec);
             } else {
                 specializedAgents.add(spec);

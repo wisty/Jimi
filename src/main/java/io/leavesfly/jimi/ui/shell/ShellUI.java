@@ -57,6 +57,7 @@ public class ShellUI implements AutoCloseable {
     private final Map<String, String> activeTools;
     private final AtomicBoolean assistantOutputStarted;
     private final AtomicInteger currentLineLength; // 当前行的字符计数
+    private final AtomicBoolean isInReasoningMode; // 当前是否在推理模式
     private Disposable wireSubscription;
 
     // 审批请求队列
@@ -82,6 +83,7 @@ public class ShellUI implements AutoCloseable {
         this.activeTools = new HashMap<>();
         this.assistantOutputStarted = new AtomicBoolean(false);
         this.currentLineLength = new AtomicInteger(0);
+        this.isInReasoningMode = new AtomicBoolean(false);
         this.approvalQueue = new LinkedBlockingQueue<>();
 
         // 初始化 Terminal
@@ -162,12 +164,13 @@ public class ShellUI implements AutoCloseable {
                     String agentName = stepBegin.getAgentName() != null ? stepBegin.getAgentName() : "subagent";
                     printStatus("  🤖 [" + agentName + "] Step " + stepBegin.getStepNumber() + " - Thinking...");
                 } else {
-                    // 主Agent的步骤
+                    // 主 Agent 的步骤
                     currentStatus.set("thinking (step " + stepBegin.getStepNumber() + ")");
                     printStatus("🤔 Step " + stepBegin.getStepNumber() + " - Thinking...");
                     // 重置输出标志和行长度
                     assistantOutputStarted.set(false);
                     currentLineLength.set(0);
+                    isInReasoningMode.set(false); // 重置推理模式
                 }
 
             } else if (message instanceof StepInterrupted) {
@@ -197,7 +200,9 @@ public class ShellUI implements AutoCloseable {
                 // 打印 LLM 输出的内容部分
                 ContentPart part = contentMsg.getContentPart();
                 if (part instanceof TextPart textPart) {
-                    printAssistantText(textPart.getText());
+                    // 根据内容类型使用不同的显示样式
+                    boolean isReasoning = contentMsg.getContentType() == ContentPartMessage.ContentType.REASONING;
+                    printAssistantText(textPart.getText(), isReasoning);
                 }
 
             } else if (message instanceof ToolCallMessage toolCallMsg) {
@@ -367,8 +372,11 @@ public class ShellUI implements AutoCloseable {
 
     /**
      * 打印助手文本输出（流式，带智能换行）
+     * 
+     * @param text 要打印的文本
+     * @param isReasoning 是否为推理内容（思考过程）
      */
-    private void printAssistantText(String text) {
+    private void printAssistantText(String text, boolean isReasoning) {
         if (text == null || text.isEmpty()) {
             return;
         }
@@ -386,12 +394,51 @@ public class ShellUI implements AutoCloseable {
             terminal.flush();
             currentLineLength.set(0);
         }
+        
+        // 检查是否需要切换模式
+        boolean wasInReasoningMode = isInReasoningMode.get();
+        if (isReasoning != wasInReasoningMode) {
+            // 模式切换，添加标记
+            if (currentLineLength.get() > 0) {
+                terminal.writer().println();
+                currentLineLength.set(0);
+            }
+            
+            if (isReasoning) {
+                // 切换到推理模式
+                AttributedStyle labelStyle = AttributedStyle.DEFAULT
+                        .foreground(AttributedStyle.CYAN)
+                        .italic();
+                terminal.writer().println(new AttributedString("💡 [思考过程]", labelStyle).toAnsi());
+            } else {
+                // 切换到正式内容
+                terminal.writer().println(); // 空行分隔
+                AttributedStyle labelStyle = AttributedStyle.DEFAULT
+                        .foreground(AttributedStyle.GREEN)
+                        .bold();
+                terminal.writer().println(new AttributedString("✅ [正式回答]", labelStyle).toAnsi());
+            }
+            terminal.flush();
+            currentLineLength.set(0);
+            isInReasoningMode.set(isReasoning);
+        }
 
         // 获取终端宽度，默认80，减去一些边距
         int terminalWidth = terminal.getWidth();
         int maxLineWidth = terminalWidth > 20 ? terminalWidth - 4 : 76;
         
-        AttributedStyle style = AttributedStyle.DEFAULT.foreground(AttributedStyle.WHITE);
+        // 根据是否为推理内容设置不同的样式
+        AttributedStyle style;
+        if (isReasoning) {
+            // 推理内容：白色、斜体
+            style = AttributedStyle.DEFAULT
+                    .foreground(AttributedStyle.WHITE)
+                    .italic();  // 斜体
+        } else {
+            // 正式内容：黄色、普通
+            style = AttributedStyle.DEFAULT
+                    .foreground(AttributedStyle.YELLOW);
+        }
         
         // 逐字符处理，实现智能换行
         for (int i = 0; i < text.length(); i++) {

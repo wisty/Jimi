@@ -1,5 +1,5 @@
 # Default Agent 配置
-name: Default Agent
+name: Default-Agent
 description: 通用软件开发助手
 
 # 系统提示词文件路径
@@ -37,30 +37,30 @@ tools:
 
 # 子 Agent 配置
 subagents:
-  design:
+  Design-Agent:
     path: design/agent.yaml
     description: 需求分析、架构设计和技术方案规划
-  code:
+  Code-Agent:
     path: code/agent.yaml
     description: 代码实现、重构和优化
-  review:
+  Review-Agent:
     path: review/agent.yaml
     description: 代码质量审查和最佳实践检查
-  build:
+  Build-Agent:
     path: build/agent.yaml
     description: 构建和编译项目，修复编译错误
-  test:
+  Test-Agent:
     path: test/agent.yaml
     description: 运行测试并分析测试失败
-  debug:
+  Debug-Agent:
     path: debug/agent.yaml
     description: 调试和修复运行时错误及缺陷
-  #  deploy:
+  #  Deploy-Agent:
   #    path: deploy/agent.yaml
   #    description: 应用部署、配置管理和运维支持
-  doc:
+  Doc-Agent:
     path: doc/agent.yaml
     description: 技术文档编写和维护
-  research:
+  Research-Agent:
     path: research/agent.yaml
     description: 搜索和研究技术信息

@@ -1,5 +1,5 @@
 # Build Agent - 专门负责构建和编译项目
-name: Build Agent
+name: Build-Agent
 description: 专门负责构建和编译项目的智能体
 
 # 系统提示词

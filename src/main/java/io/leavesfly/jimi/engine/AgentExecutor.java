@@ -332,7 +332,11 @@ public class AgentExecutor {
         if (contentDelta != null && !contentDelta.isEmpty()) {
             acc.contentBuilder.append(contentDelta);
 //            log.debug("Sending content delta to Wire: [{}]", contentDelta);
-            wire.send(new ContentPartMessage(new TextPart(contentDelta)));
+            // 根据是否为推理内容发送不同类型的消息
+            ContentPartMessage.ContentType contentType = chunk.isReasoning() 
+                    ? ContentPartMessage.ContentType.REASONING 
+                    : ContentPartMessage.ContentType.NORMAL;
+            wire.send(new ContentPartMessage(new TextPart(contentDelta), contentType));
         }
     }
 

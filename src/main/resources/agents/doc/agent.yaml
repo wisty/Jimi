@@ -1,5 +1,5 @@
 # Doc Agent - 专门负责文档编写
-name: Doc Agent
+name: Doc-Agent
 description: 专门负责技术文档编写和维护的智能体
 
 # 系统提示词

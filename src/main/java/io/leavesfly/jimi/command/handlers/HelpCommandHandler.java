@@ -35,7 +35,7 @@ public class HelpCommandHandler implements CommandHandler {
         
         out.println();
         out.println("┌────────────────────────────────────────────────────────────┐");
-        out.println("│                   Jimi CLI Help                    │");
+        out.println("│                     Jimi CLI Help                          │");
         out.println("└────────────────────────────────────────────────────────────┘");
         out.println();
         
@@ -56,6 +56,7 @@ public class HelpCommandHandler implements CommandHandler {
         out.println("  /history        - 显示命令历史");
         out.println("  /reset          - 清除上下文历史");
         out.println("  /compact        - 压缩上下文");
+        out.println("  /agents         - [agent-name | run <agent-name>]");
         out.println();
         
         out.printSuccess("Shell 快捷方式:");

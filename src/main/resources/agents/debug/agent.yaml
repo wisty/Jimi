@@ -1,5 +1,5 @@
 # Debug Agent - 专门负责调试和修复错误
-name: Debug Agent
+name: Debug-Agent
 description: 专门负责调试和修复代码错误的智能体
 
 # 系统提示词

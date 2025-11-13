@@ -1,5 +1,5 @@
 # Design Agent - 专门负责需求分析和架构设计
-name: Design Agent
+name: Design-Agent
 description: 专门负责需求分析、架构设计和技术方案规划的智能体
 
 # 系统提示词

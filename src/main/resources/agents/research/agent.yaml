@@ -1,5 +1,5 @@
 # Research Agent - 专门负责搜索和研究技术信息
-name: Research Agent
+name: Research-Agent
 description: 专门负责搜索和研究技术信息的智能体
 
 # 系统提示词

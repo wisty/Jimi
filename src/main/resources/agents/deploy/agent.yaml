@@ -1,5 +1,5 @@
 # Deploy Agent - 专门负责部署和运维
-name: Deploy Agent
+name: Deploy-Agent
 description: 专门负责应用部署、配置管理和运维支持的智能体
 
 # 系统提示词

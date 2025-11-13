@@ -1,5 +1,5 @@
 # Review Agent - 专门负责代码审查
-name: Review Agent
+name: Review-Agent
 description: 专门负责代码质量审查和最佳实践检查的智能体
 
 # 系统提示词

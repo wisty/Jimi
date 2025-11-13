@@ -26,6 +26,11 @@ public class ChatCompletionChunk {
     private String contentDelta;
     
     /**
+     * 是否为推理内容（思考过程）
+     */
+    private boolean isReasoning;
+    
+    /**
      * 工具调用ID（对于tool_call类型）
      */
     private String toolCallId;

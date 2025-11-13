@@ -1,5 +1,5 @@
 # Test Agent - 专门负责运行和分析测试
-name: Test Agent
+name: Test-Agent
 description: 专门负责运行测试并分析测试结果的智能体
 
 # 系统提示词

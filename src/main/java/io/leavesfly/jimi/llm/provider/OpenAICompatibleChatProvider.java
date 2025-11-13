@@ -150,8 +150,9 @@ public class OpenAICompatibleChatProvider implements ChatProvider {
                             // 使用 flatMap 替代 map,以便捕获单个chunk的解析错误而不中断整个流
                             try {
                                 ChatCompletionChunk chunk = parseStreamChunk(data);
-//                                log.debug("Parsed chunk: type={}, contentDelta={}",
-//                                        chunk.getType(), chunk.getContentDelta());
+//                                log.debug("Parsed chunk: type={}, contentDelta={}, reasoningDelta={}",
+//                                        chunk.getType(), chunk.getContentDelta(), 
+//                                        data.contains("reasoning_content") ? "HAS_REASONING" : "NO_REASONING");
                                 return Mono.just(chunk);
                             } catch (Exception e) {
                                 log.warn("Failed to parse stream chunk, skipping: {}", data, e);
@@ -295,9 +296,35 @@ public class OpenAICompatibleChatProvider implements ChatProvider {
 
     private Message parseMessage(JsonNode messageNode) {
         String role = messageNode.get("role").asText();
-        String content = messageNode.has("content") && !messageNode.get("content").isNull()
-                ? messageNode.get("content").asText()
-                : null;
+        
+        // 处理推理内容（支持多种字段）和普通内容
+        StringBuilder contentBuilder = new StringBuilder();
+        
+        // 先添加推理内容（如果有）
+        // 支持 reasoning_content (DeepSeek) 和 reasoning (Ollama)
+        String reasoningContent = null;
+        if (messageNode.has("reasoning_content") && !messageNode.get("reasoning_content").isNull()) {
+            reasoningContent = messageNode.get("reasoning_content").asText();
+        } else if (messageNode.has("reasoning") && !messageNode.get("reasoning").isNull()) {
+            reasoningContent = messageNode.get("reasoning").asText();
+        }
+        
+        if (reasoningContent != null && !reasoningContent.isEmpty()) {
+            contentBuilder.append(reasoningContent);
+        }
+        
+        // 再添加普通内容（如果有）
+        if (messageNode.has("content") && !messageNode.get("content").isNull()) {
+            String content = messageNode.get("content").asText();
+            if (content != null && !content.isEmpty()) {
+                if (contentBuilder.length() > 0) {
+                    contentBuilder.append("\n");
+                }
+                contentBuilder.append(content);
+            }
+        }
+        
+        String finalContent = contentBuilder.length() > 0 ? contentBuilder.toString() : null;
 
         List<ToolCall> toolCalls = null;
         if (messageNode.has("tool_calls")) {
@@ -316,9 +343,9 @@ public class OpenAICompatibleChatProvider implements ChatProvider {
         }
 
         if (toolCalls != null && !toolCalls.isEmpty()) {
-            return Message.assistant(content, toolCalls);
+            return Message.assistant(finalContent, toolCalls);
         } else {
-            return Message.assistant(content);
+            return Message.assistant(finalContent);
         }
     }
 
@@ -367,13 +394,33 @@ public class OpenAICompatibleChatProvider implements ChatProvider {
                         .build();
             }
 
-            // 处理内容增量
+            // 处理推理内容（支持多种字段名）
+            // 1. reasoning_content - DeepSeek-R1 使用
+            // 2. reasoning - Ollama qwen3-thinking 使用
+            String reasoningField = null;
+            if (delta.has("reasoning_content") && !delta.get("reasoning_content").isNull()) {
+                reasoningField = delta.get("reasoning_content").asText();
+            } else if (delta.has("reasoning") && !delta.get("reasoning").isNull()) {
+                reasoningField = delta.get("reasoning").asText();
+            }
+            
+            if (reasoningField != null && !reasoningField.isEmpty()) {
+//                log.debug("Found reasoning content: {}", reasoningField.substring(0, Math.min(50, reasoningField.length())));
+                return ChatCompletionChunk.builder()
+                        .type(ChatCompletionChunk.ChunkType.CONTENT)
+                        .contentDelta(reasoningField)
+                        .isReasoning(true)  // 标记为推理内容
+                        .build();
+            }
+
+            // 处理普通内容增量（也可能包含 <think> 标签，如 Ollama 的 qwen3-thinking 模型）
             if (delta.has("content") && !delta.get("content").isNull()) {
                 String contentDelta = delta.get("content").asText();
                 if (contentDelta != null && !contentDelta.isEmpty()) {
                     return ChatCompletionChunk.builder()
                             .type(ChatCompletionChunk.ChunkType.CONTENT)
                             .contentDelta(contentDelta)
+                            .isReasoning(false)  // 标记为正式内容
                             .build();
                 }
             }
