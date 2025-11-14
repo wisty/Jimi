@@ -13,6 +13,7 @@ system_prompt_args: {}
 #model: qwen3:4b-instruct-2507-q8_0
 #model: qwen-max
 model: qwen3-coder-flash
+#model: qwen3-next-80b-a3b-instruct
 
 
 # 可用工具（专注于设计和规划）

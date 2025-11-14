@@ -20,9 +20,14 @@
       "model": "qwen3-max",
       "max_context_size": 200000
     },
-    "qwen-plus-latest": {
+    "qwen3-next-80b-a3b-thinking": {
       "provider": "qwen",
-      "model": "qwen-plus-latest",
+      "model": "qwen3-next-80b-a3b-thinking",
+      "max_context_size": 200000
+    },
+    "qwen3-next-80b-a3b-instruct": {
+      "provider": "qwen",
+      "model": "qwen3-next-80b-a3b-instruct",
       "max_context_size": 200000
     },
     "qwen-max": {
@@ -62,7 +67,7 @@
     }
   },
   "loop_control": {
-    "max_steps_per_run": 100,
+    "max_steps_per_run": 200,
     "max_retries_per_step": 3
   }
 }

@@ -6,7 +6,7 @@
 
 - **当前时间**: ${JIMI_NOW}
 - **工作目录**: ${JIMI_WORK_DIR}
-- **当前目录列表**: ${JIMI_WORK_DIR_LS}
+- **工作目录列表**: ${JIMI_WORK_DIR_LS}
 - **项目AGENTS.md内容**: ${JIMI_AGENTS_MD}
 
 ## 你的使命

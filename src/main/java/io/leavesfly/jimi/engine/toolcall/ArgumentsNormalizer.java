@@ -45,14 +45,14 @@ public class ArgumentsNormalizer {
      * @return 标准化后的 JSON 字符串
      * //     * @throws ArgumentsNormalizationException 当无法修复参数格式时抛出
      */
-    public static String normalizeToValidJson(String arguments, ObjectMapper objectMapper) {
+    public static String normalizeToValidJson(String arguments, Tool<?> tool, ObjectMapper objectMapper) {
 
         if (arguments == null || arguments.trim().isEmpty()) {
             return "{}";
         }
 
         String normalized = arguments.trim();
-        
+
         // 步骤 0: 先校验是否已经是合法的 JSON，是的话直接返回
         try {
             objectMapper.readTree(normalized);
@@ -63,8 +63,6 @@ public class ArgumentsNormalizer {
             // 不是合法的 JSON，继续执行标准化流程
             log.debug("Arguments is not valid JSON, proceeding with normalization: {}", e.getMessage());
         }
-        
-        String original = normalized; // 保存原始值用于错误信息
 
         // 步骤 1: 移除前后多余的 null
         normalized = removeNullPrefix(normalized);
@@ -85,42 +83,14 @@ public class ArgumentsNormalizer {
         // 步骤 6: 修复非法转义字符
         normalized = fixIllegalEscapes(normalized);
 
-        // 步骤 7: 处理逗号分隔的参数
-        normalized = convertCommaDelimitedToJsonSafe(normalized);
-
-        return normalized;
-
-    }
-
-    /**
-     * 标准化json参数（兼容旧版本）
-     *
-     * @param arguments 原始参数字符串
-     * @param toolName  工具名称
-     * @return 标准化后的参数字符串
-     */
-    public static String normalize(String arguments, String toolName, Tool<?> tool, ObjectMapper objectMapper) {
-        if (arguments == null || arguments.trim().isEmpty()) {
-            log.warn("Empty or null arguments for tool: {}, using empty object", toolName);
-            return "{}";
-        }
-
-        //去空格
-        String normalize = arguments.trim();
-
-        //去null
-        normalize = removeNull(normalize, arguments, toolName);
-
-        //去json转义
-        normalize = unescapeDoubleEscapedJson(normalize, arguments, toolName);
-
-        // 转换逗号分隔的参数为JSON数组格式
-        normalize = convertCommaDelimitedToJson(normalize, arguments, toolName);
+        // 步骤 7:转换逗号分隔的参数为JSON数组格式
+        normalized = convertCommaDelimitedToJson(normalized, arguments, tool.getName());
 
         //JSON数组格式转成json对象格式
-        return convertArrayToObject(normalize, tool, toolName, objectMapper);
+        return convertArrayToObject(normalized, tool, tool.getName(), objectMapper);
 
     }
+
 
     /**
      * 移除开头的 null
@@ -197,8 +167,8 @@ public class ArgumentsNormalizer {
      */
     private static String escapeUnescapedQuotesInValues(String input) {
         // 只处理对象和数组格式
-        if ((!input.startsWith("{") || !input.endsWith("}")) && 
-            (!input.startsWith("[") || !input.endsWith("]"))) {
+        if ((!input.startsWith("{") || !input.endsWith("}")) &&
+                (!input.startsWith("[") || !input.endsWith("]"))) {
             return input;
         }
 
@@ -208,14 +178,14 @@ public class ArgumentsNormalizer {
             boolean afterColon = false;  // 标记是否在冒号之后(值位置)
             int braceDepth = 0;  // 花括号深度
             int bracketDepth = 0;  // 方括号深度
-            
+
             for (int i = 0; i < input.length(); i++) {
                 char c = input.charAt(i);
                 char prev = i > 0 ? input.charAt(i - 1) : '\0';
-                
+
                 // 检测是否是转义字符
                 boolean isEscaped = (prev == '\\');
-                
+
                 // 处理引号
                 if (c == '"' && !isEscaped) {
                     if (!inString) {
@@ -226,7 +196,7 @@ public class ArgumentsNormalizer {
                         // 可能是字符串结束,也可能是值内部未转义的引号
                         // 检查后续字符来判断
                         int nextNonSpace = findNextNonSpaceChar(input, i + 1);
-                        
+
                         if (afterColon && nextNonSpace != -1) {
                             char nextChar = input.charAt(nextNonSpace);
                             // 如果后面不是逗号、右括号、右花括号,说明是值内部的引号需要转义
@@ -235,7 +205,7 @@ public class ArgumentsNormalizer {
                                 continue;
                             }
                         }
-                        
+
                         // 正常的字符串结束
                         inString = false;
                         afterColon = false;
@@ -248,12 +218,12 @@ public class ArgumentsNormalizer {
                     } else if (c == ',' || c == '{' || c == '[') {
                         afterColon = false;
                     }
-                    
+
                     if (c == '{') braceDepth++;
                     else if (c == '}') braceDepth--;
                     else if (c == '[') bracketDepth++;
                     else if (c == ']') bracketDepth--;
-                    
+
                     result.append(c);
                 } else {
                     // 字符串内部的字符 - 需要转义特殊字符
@@ -279,20 +249,20 @@ public class ArgumentsNormalizer {
                     }
                 }
             }
-            
+
             String resultStr = result.toString();
             if (!resultStr.equals(input)) {
-                log.warn("Escaped unescaped quotes and special chars in JSON values. Original length: {}, Fixed length: {}", 
-                    input.length(), resultStr.length());
+                log.warn("Escaped unescaped quotes and special chars in JSON values. Original length: {}, Fixed length: {}",
+                        input.length(), resultStr.length());
                 return resultStr;
             }
         } catch (Exception e) {
             log.debug("Failed to escape unescaped quotes, using as-is", e);
         }
-        
+
         return input;
     }
-    
+
     /**
      * 查找下一个非空格字符的位置
      */
@@ -601,43 +571,6 @@ public class ArgumentsNormalizer {
         }
 
         return result;
-    }
-
-    /**
-     * 修复双重转义的JSON和异常格式
-     */
-    private static String unescapeDoubleEscapedJson(String trimmed, String original, String toolName) {
-        // 处理双重转义的JSON: "{\"key\": \"value\"}"
-        if (trimmed.startsWith("\"") && trimmed.endsWith("\"") && trimmed.length() > 2) {
-            try {
-                String unescaped = trimmed.substring(1, trimmed.length() - 1)
-                        .replace("\\\"", "\"")
-                        .replace("\\\\", "\\");
-                log.warn("Detected double-escaped JSON arguments for tool {}. Original: {}, Unescaped: {}",
-                        toolName, original, unescaped);
-                return unescaped;
-            } catch (Exception e) {
-                log.debug("Failed to unescape arguments, using as-is", e);
-            }
-        }
-
-        // 处理包含转义引号的JSON字符串: {\"key\": \"value\"}
-        if (trimmed.contains("\\\"")) {
-            try {
-                String unescaped = trimmed.replace("\\\"", "\"");
-                // 验证是否是有效的JSON格式
-                if ((unescaped.startsWith("{") && unescaped.endsWith("}")) ||
-                        (unescaped.startsWith("[") && unescaped.endsWith("]"))) {
-                    log.warn("Detected escaped quotes in JSON arguments for tool {}. Original: {}, Unescaped: {}",
-                            toolName, original, unescaped);
-                    return unescaped;
-                }
-            } catch (Exception e) {
-                log.debug("Failed to unescape quotes in arguments, using as-is", e);
-            }
-        }
-
-        return trimmed;
     }
 
 

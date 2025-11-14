@@ -104,7 +104,7 @@ public class ToolRegistry {
                 log.debug("Parsed parameters before for {}: {}", toolName, arguments);
 
                 // 将参数转成标准的json格式
-                effectiveArguments = ArgumentsNormalizer.normalizeToValidJson(arguments, objectMapper);
+                effectiveArguments = ArgumentsNormalizer.normalizeToValidJson(arguments, tool, objectMapper);
 
                 log.debug("Parsed parameters after for {}: {}", toolName, effectiveArguments);
 
@@ -210,7 +210,7 @@ public class ToolRegistry {
                 }
 
                 ObjectNode propSchema = objectMapper.createObjectNode();
-                
+
                 // 生成字段的 schema（支持泛型类型）
                 generateFieldSchema(field, propSchema);
 
@@ -247,7 +247,7 @@ public class ToolRegistry {
      */
     private String extractFieldDescription(Field field) {
         // 尝试从 @JsonPropertyDescription 注解获取
-       JsonPropertyDescription desc =
+        JsonPropertyDescription desc =
                 field.getAnnotation(JsonPropertyDescription.class);
         if (desc != null && !desc.value().isEmpty()) {
             return desc.value();
@@ -256,17 +256,17 @@ public class ToolRegistry {
         // 未来可以扩展支持其他方式（如自定义注解）
         return null;
     }
-    
+
     /**
      * 生成字段的 JSON Schema
      * 支持基本类型、List 和嵌套对象
-     * 
-     * @param field 字段
+     *
+     * @param field      字段
      * @param propSchema Schema 节点
      */
     private void generateFieldSchema(Field field, ObjectNode propSchema) {
         Class<?> fieldType = field.getType();
-        
+
         // 处理基本类型
         if (fieldType == String.class) {
             propSchema.put("type", "string");
@@ -283,20 +283,20 @@ public class ToolRegistry {
         } else if (List.class.isAssignableFrom(fieldType)) {
             // 处理 List 类型，解析泛型参数
             propSchema.put("type", "array");
-            
+
             // 获取泛型参数
             Type genericType = field.getGenericType();
             if (genericType instanceof ParameterizedType) {
                 ParameterizedType paramType = (ParameterizedType) genericType;
                 Type[] typeArgs = paramType.getActualTypeArguments();
-                
+
                 if (typeArgs.length > 0 && typeArgs[0] instanceof Class) {
                     Class<?> itemType = (Class<?>) typeArgs[0];
                     ObjectNode itemsSchema = objectMapper.createObjectNode();
-                    
+
                     // 递归生成 items schema
                     generateTypeSchema(itemType, itemsSchema);
-                    
+
                     propSchema.set("items", itemsSchema);
                 } else {
                     // 无法解析泛型参数，默认为 string
@@ -315,12 +315,12 @@ public class ToolRegistry {
             generateTypeSchema(fieldType, propSchema);
         }
     }
-    
+
     /**
      * 生成类型的 JSON Schema
      * 处理基本类型和嵌套对象
-     * 
-     * @param type 类型
+     *
+     * @param type   类型
      * @param schema Schema 节点
      */
     private void generateTypeSchema(Class<?> type, ObjectNode schema) {
@@ -348,42 +348,42 @@ public class ToolRegistry {
         } else {
             // 处理嵌套对象
             schema.put("type", "object");
-            
+
             ObjectNode properties = objectMapper.createObjectNode();
             ArrayNode required = objectMapper.createArrayNode();
-            
+
             // 遍历对象的字段
             for (Field field : type.getDeclaredFields()) {
                 // 跳过静态字段、合成字段
                 if (Modifier.isStatic(field.getModifiers()) || field.isSynthetic()) {
                     continue;
                 }
-                
+
                 // 获取字段名
                 String fieldName = field.getName();
                 JsonProperty jp = field.getAnnotation(JsonProperty.class);
                 if (jp != null && !jp.value().isEmpty()) {
                     fieldName = jp.value();
                 }
-                
+
                 // 生成字段 schema
                 ObjectNode fieldSchema = objectMapper.createObjectNode();
                 generateFieldSchema(field, fieldSchema);
-                
+
                 // 添加描述
                 String description = extractFieldDescription(field);
                 if (description != null && !description.isEmpty()) {
                     fieldSchema.put("description", description);
                 }
-                
+
                 properties.set(fieldName, fieldSchema);
-                
+
                 // 判断是否必填
                 if (!field.isAnnotationPresent(lombok.Builder.Default.class)) {
                     required.add(fieldName);
                 }
             }
-            
+
             schema.set("properties", properties);
             if (required.size() > 0) {
                 schema.set("required", required);

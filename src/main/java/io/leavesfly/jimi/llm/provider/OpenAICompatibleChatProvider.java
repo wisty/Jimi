@@ -116,12 +116,6 @@ public class OpenAICompatibleChatProvider implements ChatProvider {
         return Flux.defer(() -> {
             try {
                 ObjectNode requestBody = buildRequestBody(systemPrompt, history, tools, true);
-//                log.debug("Sending streaming request to {}, body: {}", providerName, requestBody);
-                
-                // 记录完整的请求体以便调试
-//                if (tools != null && !tools.isEmpty()) {
-//                    log.info("{} request with {} tools, full body: {}", providerName, tools.size(), requestBody.toPrettyString());
-//                }
 
                 return webClient.post()
                         .uri("/chat/completions")
