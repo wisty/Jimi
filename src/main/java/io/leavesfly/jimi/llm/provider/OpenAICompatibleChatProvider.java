@@ -8,6 +8,7 @@ import io.leavesfly.jimi.config.LLMProviderConfig;
 import io.leavesfly.jimi.llm.ChatCompletionChunk;
 import io.leavesfly.jimi.llm.ChatCompletionResult;
 import io.leavesfly.jimi.llm.ChatProvider;
+import io.leavesfly.jimi.llm.RateLimiter;
 import io.leavesfly.jimi.llm.message.ContentPart;
 import io.leavesfly.jimi.llm.message.FunctionCall;
 import io.leavesfly.jimi.llm.message.Message;
@@ -34,6 +35,7 @@ public class OpenAICompatibleChatProvider implements ChatProvider {
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
     private final String providerName;
+    private final RateLimiter rateLimiter;  // 限流器
     
     // <think>标签解析状态（流式处理）
     private boolean insideThinkTag = false;
@@ -48,6 +50,14 @@ public class OpenAICompatibleChatProvider implements ChatProvider {
         this.modelName = modelName;
         this.objectMapper = objectMapper;
         this.providerName = providerName;
+
+        // 初始化限流器（如果配置了）
+        if (providerConfig.getRateLimit() != null) {
+            this.rateLimiter = new RateLimiter(providerConfig.getRateLimit());
+            log.info("{} ChatProvider rate limiting enabled", providerName);
+        } else {
+            this.rateLimiter = null;
+        }
 
         // 构建 WebClient
         WebClient.Builder builder = WebClient.builder()
@@ -83,6 +93,9 @@ public class OpenAICompatibleChatProvider implements ChatProvider {
     ) {
         return Mono.defer(() -> {
             try {
+                // 应用限流
+                applyRateLimit();
+                
                 ObjectNode requestBody = buildRequestBody(systemPrompt, history, tools, false);
 
                 return webClient.post()
@@ -119,6 +132,9 @@ public class OpenAICompatibleChatProvider implements ChatProvider {
     ) {
         return Flux.defer(() -> {
             try {
+                // 应用限流
+                applyRateLimit();
+                
                 // 重置流式处理状态(每次新请求都重置)
                 insideThinkTag = false;
                 thinkTagBuffer = new StringBuilder();
@@ -535,5 +551,14 @@ public class OpenAICompatibleChatProvider implements ChatProvider {
                 .contentDelta(processedContent.toString())
                 .isReasoning(currentIsReasoning)
                 .build();
+    }
+    
+    /**
+     * 应用限流（如果配置了）
+     */
+    private void applyRateLimit() {
+        if (rateLimiter != null) {
+            rateLimiter.acquirePermit();
+        }
     }
 }

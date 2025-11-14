@@ -138,7 +138,7 @@ public class SkillMatcher {
         List<SkillSpec> candidateSkills = skillRegistry.findByTriggers(keywords);
         
         if (candidateSkills.isEmpty()) {
-            log.debug("No skills matched for keywords: {}", keywords);
+//            log.debug("No skills matched for keywords: {}", keywords);
             return Collections.emptyList();
         }
         

@@ -1,17 +1,12 @@
 package io.leavesfly.jimi.engine.toolcall;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.leavesfly.jimi.tool.Tool;
 import lombok.extern.slf4j.Slf4j;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Pattern;
+
 
 /**
  * 工具调用参数标准化器
@@ -45,7 +40,7 @@ public class ArgumentsNormalizer {
      * @return 标准化后的 JSON 字符串
      * //     * @throws ArgumentsNormalizationException 当无法修复参数格式时抛出
      */
-    public static String normalizeToValidJson(String arguments, Tool<?> tool, ObjectMapper objectMapper) {
+    public static String normalizeToValidJson(String arguments, ObjectMapper objectMapper) {
 
         if (arguments == null || arguments.trim().isEmpty()) {
             return "{}";
@@ -54,14 +49,8 @@ public class ArgumentsNormalizer {
         String normalized = arguments.trim();
 
         // 步骤 0: 先校验是否已经是合法的 JSON，是的话直接返回
-        try {
-            objectMapper.readTree(normalized);
-            // 如果能够成功解析，说明已经是合法的 JSON，直接返回
-//            log.debug("Arguments is already valid JSON, skip normalization: {}", normalized);
+        if (isStrictValidJson(normalized, objectMapper)) {
             return normalized;
-        } catch (Exception e) {
-            // 不是合法的 JSON，继续执行标准化流程
-            log.debug("Arguments is not valid JSON, proceeding with normalization: {}", e.getMessage());
         }
 
         // 步骤 1: 移除前后多余的 null
@@ -83,44 +72,94 @@ public class ArgumentsNormalizer {
         // 步骤 6: 修复非法转义字符
         normalized = fixIllegalEscapes(normalized);
 
-        // 步骤 7:转换逗号分隔的参数为JSON数组格式
-        normalized = convertCommaDelimitedToJson(normalized, arguments, tool.getName());
+        // 步骤 7: 处理逗号分隔的参数
+        normalized = convertCommaDelimitedToJsonSafe(normalized);
 
-        //JSON数组格式转成json对象格式
-        return convertArrayToObject(normalized, tool, tool.getName(), objectMapper);
+        return normalized;
 
+    }
+
+    /**
+     * 严格校验是否为合法的 JSON 字符串
+     * 注意：Jackson 的 objectMapper.readTree() 只会解析第一个 JSON 结构，
+     * 对于 "{...}null" 这样的字符串也会返回成功，因为它成功解析了前面的 {}。
+     * 这个方法会确保整个字符串都是合法的 JSON，不允许有多余的后缀。
+     *
+     * @param json         待校验的字符串
+     * @param objectMapper Jackson ObjectMapper 实例
+     * @return 是否为严格的合法 JSON
+     */
+    private static boolean isStrictValidJson(String json, ObjectMapper objectMapper) {
+        try {
+            JsonParser parser = objectMapper.getFactory().createParser(json);
+            objectMapper.readTree(parser);
+            
+            // 检查是否还有多余的内容（如后缀 null）
+            // 如果能继续读取到 token，说明有多余内容
+            if (parser.nextToken() != null) {
+                log.debug("JSON has extra content after main structure: {}", json);
+                return false;
+            }
+            
+            // 整个字符串都是合法的 JSON
+            return true;
+        } catch (Exception e) {
+            // 不是合法的 JSON，继续执行标准化流程
+            log.debug("Arguments is not valid JSON, proceeding with normalization: {}", e.getMessage());
+            return false;
+        }
     }
 
 
     /**
-     * 移除开头的 null
+     * 移除开头的 null（循环处理多个连续的null）
      */
     private static String removeNullPrefix(String input) {
         String trimmed = input.trim();
-        if (trimmed.startsWith("null")) {
+        String original = trimmed;
+        boolean removed = false;
+        
+        while (trimmed.startsWith("null")) {
             String afterNull = trimmed.substring(4).trim();
             // 验证后面是否为有效的JSON结构
-            if (afterNull.startsWith("{") || afterNull.startsWith("[")) {
-                log.warn("Removed 'null' prefix from arguments: {}", input);
-                return afterNull;
+            if (afterNull.startsWith("{") || afterNull.startsWith("[") || 
+                    (afterNull.startsWith("\"") && afterNull.length() > 2)) {
+                trimmed = afterNull;
+                removed = true;
+            } else {
+                break;
             }
+        }
+        
+        if (removed) {
+            log.warn("Removed 'null' prefix from arguments: {} -> {}", original, trimmed);
         }
         return trimmed;
     }
 
     /**
-     * 移除末尾的 null
+     * 移除末尾的 null（循环处理多个连续的null）
      */
     private static String removeNullSuffix(String input) {
         String trimmed = input.trim();
-        if (trimmed.endsWith("null")) {
+        String original = trimmed;
+        boolean removed = false;
+        
+        while (trimmed.endsWith("null")) {
             String beforeNull = trimmed.substring(0, trimmed.length() - 4).trim();
             // 验证前面是否为完整的JSON结构
             if ((beforeNull.startsWith("{") && beforeNull.endsWith("}")) ||
-                    (beforeNull.startsWith("[") && beforeNull.endsWith("]"))) {
-                log.warn("Removed 'null' suffix from arguments: {}", input);
-                return beforeNull;
+                    (beforeNull.startsWith("[") && beforeNull.endsWith("]")) ||
+                    (beforeNull.startsWith("\"") && beforeNull.endsWith("\"") && beforeNull.length() > 2)) {
+                trimmed = beforeNull;
+                removed = true;
+            } else {
+                break;
             }
+        }
+        
+        if (removed) {
+            log.warn("Removed 'null' suffix from arguments: {} -> {}", original, trimmed);
         }
         return trimmed;
     }
@@ -461,52 +500,6 @@ public class ArgumentsNormalizer {
         return input;
     }
 
-    /**
-     * 移除字符串中所有的null（兼容旧版本）
-     */
-    private static String removeNull(String trimmed, String original, String toolName) {
-        if (trimmed.contains("null")) {
-            String fixed = trimmed.replace("null", "").trim();
-            if (!fixed.equals(trimmed)) {
-                log.warn("Detected arguments with 'null' for tool {}. Original: {}, Fixed: {}",
-                        toolName, original, fixed);
-                return fixed;
-            }
-        }
-        return trimmed;
-    }
-
-    /**
-     * 将逗号分隔的参数转换为JSON数组格式
-     * 例如: "/Users/yefei.yf/Jimi/java/SKILLS_README.md", 1, 100 -> ["/Users/yefei.yf/Jimi/java/SKILLS_README.md", 1, 100]
-     */
-    private static String convertCommaDelimitedToJson(String trimmed, String original, String toolName) {
-        // 如果已经是有效的JSON格式（以{或[开头），直接返回
-        if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
-            return trimmed;
-        }
-
-        // 检查是否包含逗号（可能是逗号分隔的参数）
-        if (!trimmed.contains(",")) {
-            // 单个参数，尝试判断类型并包装为数组
-            return "[" + trimmed + "]";
-        }
-
-        // 包含逗号，可能是逗号分隔的多个参数
-        try {
-            List<String> parts = parseCommaDelimitedArguments(trimmed);
-            if (!parts.isEmpty()) {
-                String jsonArray = "[" + String.join(", ", parts) + "]";
-                log.info("Converted comma-delimited arguments to JSON array for tool {}. Original: {}, Converted: {}",
-                        toolName, original, jsonArray);
-                return jsonArray;
-            }
-        } catch (Exception e) {
-            log.debug("Failed to parse as comma-delimited arguments, using as-is: {}", e.getMessage());
-        }
-
-        return trimmed;
-    }
 
     /**
      * 解析逗号分隔的参数
@@ -571,98 +564,6 @@ public class ArgumentsNormalizer {
         }
 
         return result;
-    }
-
-
-    /**
-     * 将 JSON 数组格式的参数转换为 JSON 对象格式
-     * 例如: ["/path/file", 1, 100] -> {"path": "/path/file", "lineOffset": 1, "nLines": 100}
-     *
-     * @param arguments JSON 字符串（可能是数组或对象格式）
-     * @param tool      工具实例
-     * @param toolName  工具名称
-     * @return 转换后的 JSON 对象字符串
-     */
-    private static String convertArrayToObject(String arguments, Tool<?> tool, String toolName, ObjectMapper objectMapper) {
-        try {
-            // 检查是否为 JSON 数组格式
-            String trimmed = arguments.trim();
-            if (!trimmed.startsWith("[")) {
-                // 不是数组格式，直接返回
-                return arguments;
-            }
-
-            // 解析 JSON 数组
-            JsonNode jsonNode = objectMapper.readTree(trimmed);
-            if (!jsonNode.isArray()) {
-                return arguments;
-            }
-
-            ArrayNode arrayNode = (ArrayNode) jsonNode;
-            Class<?> paramsType = tool.getParamsType();
-
-            if (paramsType == null) {
-                log.warn("Tool {} has null paramsType, cannot convert array to object", toolName);
-                return arguments;
-            }
-
-            // 获取参数类的所有字段（按声明顺序）
-            List<Field> fields = getOrderedFields(paramsType);
-
-            // 检查数组元素数量是否匹配
-            if (arrayNode.size() > fields.size()) {
-                log.warn("Array has {} elements but tool {} only has {} parameters",
-                        arrayNode.size(), toolName, fields.size());
-            }
-
-            // 构建 JSON 对象
-            ObjectNode objectNode = objectMapper.createObjectNode();
-            for (int i = 0; i < Math.min(arrayNode.size(), fields.size()); i++) {
-                Field field = fields.get(i);
-                JsonNode value = arrayNode.get(i);
-
-                // 获取字段名（考虑 @JsonProperty 注解）
-                String fieldName = field.getName();
-                JsonProperty jp = field.getAnnotation(JsonProperty.class);
-                if (jp != null && !jp.value().isEmpty()) {
-                    fieldName = jp.value();
-                }
-
-                // 设置值
-                objectNode.set(fieldName, value);
-            }
-
-            String result = objectMapper.writeValueAsString(objectNode);
-            log.info("Converted array arguments to object for tool {}. Original: {}, Converted: {}",
-                    toolName, arguments, result);
-            return result;
-
-        } catch (Exception e) {
-            log.debug("Failed to convert array to object for tool {}, using original arguments: {}",
-                    toolName, e.getMessage());
-            return arguments;
-        }
-    }
-
-    /**
-     * 获取参数类的有序字段列表
-     * 排除静态字段和合成字段
-     *
-     * @param paramsType 参数类型
-     * @return 有序字段列表
-     */
-    private static List<Field> getOrderedFields(Class<?> paramsType) {
-        List<Field> fields = new ArrayList<>();
-        for (Field field : paramsType.getDeclaredFields()) {
-            // 跳过静态字段、合成字段和 $jacocoData 等字段
-            if (java.lang.reflect.Modifier.isStatic(field.getModifiers()) ||
-                    field.isSynthetic() ||
-                    field.getName().startsWith("$")) {
-                continue;
-            }
-            fields.add(field);
-        }
-        return fields;
     }
 
 }

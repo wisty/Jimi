@@ -8,6 +8,7 @@ import io.leavesfly.jimi.config.LLMProviderConfig;
 import io.leavesfly.jimi.llm.ChatCompletionChunk;
 import io.leavesfly.jimi.llm.ChatCompletionResult;
 import io.leavesfly.jimi.llm.ChatProvider;
+import io.leavesfly.jimi.llm.RateLimiter;
 import io.leavesfly.jimi.llm.message.ContentPart;
 import io.leavesfly.jimi.llm.message.FunctionCall;
 import io.leavesfly.jimi.llm.message.Message;
@@ -32,6 +33,7 @@ public class KimiChatProvider implements ChatProvider {
     private final String modelName;
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
+    private final RateLimiter rateLimiter;  // 限流器
     
     public KimiChatProvider(
         String modelName,
@@ -40,6 +42,14 @@ public class KimiChatProvider implements ChatProvider {
     ) {
         this.modelName = modelName;
         this.objectMapper = objectMapper;
+        
+        // 初始化限流器（如果配置了）
+        if (providerConfig.getRateLimit() != null) {
+            this.rateLimiter = new RateLimiter(providerConfig.getRateLimit());
+            log.info("Kimi ChatProvider rate limiting enabled");
+        } else {
+            this.rateLimiter = null;
+        }
         
         // 构建 WebClient
         WebClient.Builder builder = WebClient.builder()
@@ -68,6 +78,9 @@ public class KimiChatProvider implements ChatProvider {
     ) {
         return Mono.defer(() -> {
             try {
+                // 应用限流
+                applyRateLimit();
+                
                 ObjectNode requestBody = buildRequestBody(systemPrompt, history, tools, false);
                 
                 return webClient.post()
@@ -93,6 +106,9 @@ public class KimiChatProvider implements ChatProvider {
     ) {
         return Flux.defer(() -> {
             try {
+                // 应用限流
+                applyRateLimit();
+                
                 ObjectNode requestBody = buildRequestBody(systemPrompt, history, tools, true);
                 
                 return webClient.post()
@@ -315,6 +331,15 @@ public class KimiChatProvider implements ChatProvider {
                 .type(ChatCompletionChunk.ChunkType.CONTENT)
                 .contentDelta("")
                 .build();
+        }
+    }
+    
+    /**
+     * 应用限流（如果配置了）
+     */
+    private void applyRateLimit() {
+        if (rateLimiter != null) {
+            rateLimiter.acquirePermit();
         }
     }
 }

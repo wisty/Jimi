@@ -104,7 +104,7 @@ public class ToolRegistry {
                 log.debug("Parsed parameters before for {}: {}", toolName, arguments);
 
                 // 将参数转成标准的json格式
-                effectiveArguments = ArgumentsNormalizer.normalizeToValidJson(arguments, tool, objectMapper);
+                effectiveArguments = ArgumentsNormalizer.normalizeToValidJson(arguments, objectMapper);
 
                 log.debug("Parsed parameters after for {}: {}", toolName, effectiveArguments);
 

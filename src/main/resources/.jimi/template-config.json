@@ -5,7 +5,12 @@
       "type": "qwen",
       "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
       "api_key": "XXXX",
-      "custom_headers": {}
+      "custom_headers": {},
+      "rate_limit": {
+        "window_ms": 4000,
+        "max_requests": 4,
+        "sleep_ms": 3000
+      }
     },
     "ollama": {
       "type": "ollama",

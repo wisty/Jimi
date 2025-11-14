@@ -44,6 +44,39 @@ public class LLMProviderConfig {
     private Map<String, String> customHeaders = new HashMap<>();
 
     /**
+     * 限流配置
+     */
+    @JsonProperty("rate_limit")
+    private RateLimitConfig rateLimit;
+
+    /**
+     * 限流配置
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RateLimitConfig {
+        /**
+         * 时间窗口（毫秒）
+         */
+        @JsonProperty("window_ms")
+        private long windowMs;
+
+        /**
+         * 时间窗口内最大请求数
+         */
+        @JsonProperty("max_requests")
+        private int maxRequests;
+
+        /**
+         * 超过限流时的等待时间（毫秒）
+         */
+        @JsonProperty("sleep_ms")
+        private long sleepMs;
+    }
+
+    /**
      * 提供商类型枚举
      */
     public enum ProviderType {
