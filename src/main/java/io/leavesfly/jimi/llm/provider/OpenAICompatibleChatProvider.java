@@ -16,10 +16,12 @@ import io.leavesfly.jimi.llm.message.ToolCall;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.netty.http.client.HttpClient;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -63,8 +65,14 @@ public class OpenAICompatibleChatProvider implements ChatProvider {
             this.rateLimiter = null;
         }
 
+        // 配置 HttpClient 使用 JVM 的原生 DNS 解析器
+        // 这样可以避免 Netty DNS 解析器在某些网络环境（如公司内网）下的问题
+        HttpClient httpClient = HttpClient.create()
+                .resolver(spec -> spec.completeOncePreferredResolved(true));
+
         // 构建 WebClient
         WebClient.Builder builder = WebClient.builder()
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .baseUrl(providerConfig.getBaseUrl())
                 .defaultHeader("Content-Type", "application/json");
 
