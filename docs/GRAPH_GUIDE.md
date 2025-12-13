@@ -115,7 +115,7 @@ jimi:
 # 1. 构建代码图
 jimi> /graph build
 开始构建代码图...
-项目路径: /Users/yefei.yf/QoderCLI/Jimi
+项目路径: /Users/yefei.yf/CLI/Jimi
 
 ✅ 代码图构建完成
 
@@ -130,7 +130,7 @@ jimi> /graph stats
   实体数: 1523
   关系数: 3847
   初始化状态: 已初始化
-  项目路径: /Users/yefei.yf/QoderCLI/Jimi
+  项目路径: /Users/yefei.yf/CLI/Jimi
 
 # 3. 使用 Agent 工具查询
 jimi> 查找 GraphManager 类的调用关系

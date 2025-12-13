@@ -295,7 +295,6 @@ sequenceDiagram
 
 #### 3.3.1 事件类型映射
 
-Jimi的 [`Wire`](file:///Users/yefei.yf/QoderCLI/Jimi/src/main/java/io/leavesfly/jimi/wire/Wire.java) 消息与SSE事件的映射关系:
 
 | Wire消息类型 | SSE事件类型 | 数据结构 |
 |-------------|------------|---------|
@@ -387,7 +386,6 @@ public class JimiRpcController {
 
 #### 4.1.1 新增RPC模式启动
 
-**修改 [`CliApplication`](file:///Users/yefei.yf/QoderCLI/Jimi/src/main/java/io/leavesfly/jimi/cli/CliApplication.java):**
 
 ```java
 @Option(names = {"--server"}, description = "Start in RPC server mode")
@@ -1169,7 +1167,7 @@ wrk -t4 -c100 -d30s \
 #### D.1 Jimi端
 
 ```bash
-cd /Users/yefei.yf/QoderCLI/Jimi
+cd /Users/yefei.yf/CLI/Jimi
 mvn clean package -DskipTests
 java -jar target/jimi-0.1.0.jar --server --port 9527
 ```
